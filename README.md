@@ -81,6 +81,18 @@ HelloworldRxTask.build(name, 6).asObservable().subscribe(new Subscriber<Hellowor
 });
 ```
 
+## Project structure
+
+`tasktree-annotations`: only annotations contained.
+
+`tasktree-compiler`: code generator.
+
+`tasktree-core`: `TaskTree` implemtations.
+
+`tasktree-rx`: nothing but a place holder.
+
+`tasktree-test`: unit tests for `tasktree-core` and `tasktree-compiler`.
+
 ## Note
 
 This project is at it's early stage.
