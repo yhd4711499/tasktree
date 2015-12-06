@@ -6,7 +6,7 @@ Concentrate on business!
 
 **write your task as below**
 
-```
+```java
 @Task(rx = false)
 class Helloworld {
     @Input String name;
@@ -29,7 +29,7 @@ class Helloworld {
 
 **use it**
 
-```
+```java
 HelloworldTask.build(name, age)
   .onSuccess(greetings -> {
     System.out.println("Greetings from ornithopter: " + greetings);
@@ -57,7 +57,7 @@ In addition, you can declare a field with type `TaskController<?>` and annotate 
 Changing `@Task(rx = false)` to `@Task(rx = true)` makes `HelloworldTask` equiped with this powerful method: `asObservable`.
 Then you can do whole bunch of things with RxJava!
 
-```
+```java
 HelloworldRxTask.build(name, 6).asObservable().subscribe(new Subscriber<HelloworldRxTask.Result>() {
     @Override
     public void onStart() {
