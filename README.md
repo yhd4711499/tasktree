@@ -43,7 +43,7 @@ HelloworldTask.build(name, age)
   .execute();
 ```
 
-**how it work**
+**how it works**
 
 In `Helloworld`, fields annotated with `Input` will be asigned in `HelloworldTask.build(...)`. Fields with `Output` should be asigned in
 method annotated with `Execution`.
