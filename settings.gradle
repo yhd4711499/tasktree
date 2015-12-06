@@ -1,0 +1,1 @@
+include ':tasktree-test', ':tasktree-core', ':tasktree-compiler', ':tasktree-annotations', ':tasktree-rx'

@@ -1,0 +1,6 @@
+apply plugin: 'java'
+
+configurations {
+    provided
+    compile.extendsFrom provided
+}

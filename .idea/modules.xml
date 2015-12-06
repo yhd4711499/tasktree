@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/TaskTree.iml" filepath="$PROJECT_DIR$/TaskTree.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tasktree-annotations/tasktree-annotations.iml" filepath="$PROJECT_DIR$/tasktree-annotations/tasktree-annotations.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tasktree-compiler/tasktree-compiler.iml" filepath="$PROJECT_DIR$/tasktree-compiler/tasktree-compiler.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tasktree-core/tasktree-core.iml" filepath="$PROJECT_DIR$/tasktree-core/tasktree-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tasktree-rx/tasktree-rx.iml" filepath="$PROJECT_DIR$/tasktree-rx/tasktree-rx.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tasktree-test/tasktree-test.iml" filepath="$PROJECT_DIR$/tasktree-test/tasktree-test.iml" />
+    </modules>
+  </component>
+</project>
