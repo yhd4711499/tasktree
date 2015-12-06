@@ -54,7 +54,7 @@ In addition, you can declare a field with type `TaskController<?>` and annotate 
 
 **RxJava supported**
 
-Changing `@Task(rx = false)` to `@Task(rx = true)` makes `HelloworldTask` equiped with this powerful method: 'asObservable'.
+Changing `@Task(rx = false)` to `@Task(rx = true)` makes `HelloworldTask` equiped with this powerful method: `asObservable`.
 Then you can do whole bunch of things with RxJava!
 
 ```
