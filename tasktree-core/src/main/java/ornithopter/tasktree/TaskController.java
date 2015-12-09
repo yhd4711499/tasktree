@@ -34,7 +34,12 @@ public class TaskController<T> extends TaskBean<T> {
     public void progress(T progress) {
         Task<?, T> task = getTask();
         if (task != null && task.progressCallback != null) {
-            task.progressCallback.call(progress);
+            try {
+                task.progressCallback.call(progress);
+            } catch (Throwable throwable) {
+                // todo: handle progress error
+                throwable.printStackTrace();
+            }
         }
     }
 

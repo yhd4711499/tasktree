@@ -21,8 +21,12 @@ public class ExampleUnitTest {
         final String name = "yhd";
         HelloworldTask.build(name, 6)
                 .onSuccess(s -> {
-                    Assert.assertEquals(s, name);
+                    Assert.assertEquals(s, "Hello yhd. You're younger than me.");
                     signal.countDown();
+                })
+                .onError(throwable -> {
+                    signal.countDown();
+                    Assert.assertNull(throwable);
                 })
                 .onStarted(() -> System.out.println("HelloworldTask started."))
                 .onProgress((progress) -> Assert.assertEquals(progress, "I'm thinking..."))
@@ -76,6 +80,7 @@ public class ExampleUnitTest {
                             .execute();
                 })
                 .onStarted(() -> System.out.println("HelloworldTask started."))
+                .onError(throwable -> signal.countDown())
                 .onProgress((progress) -> Assert.assertEquals(progress, "I'm thinking..."))
                 .execute();
         signal.await();

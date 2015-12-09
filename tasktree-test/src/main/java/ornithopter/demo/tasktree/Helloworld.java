@@ -23,7 +23,8 @@ class Helloworld {
 
     @Execution void execute() {
         taskController.progress("I'm thinking...");
-        greetings = name;
+        greetings = "Hello " + name + ". You're ";
+        greetings += (age > 26 ? "older" : "younger") + " than me.";
         taskController.success();
     }
 }
