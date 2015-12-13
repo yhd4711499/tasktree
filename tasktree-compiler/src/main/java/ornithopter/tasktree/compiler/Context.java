@@ -7,6 +7,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -106,23 +107,43 @@ public class Context {
         for (Element element :
                 injectFields) {
             Types typeUtils = getTypeUtils();
-            TypeMirror erasure = typeUtils.erasure(element.asType());
             TypeMirror target = typeUtils.erasure(getTypeElement(clazz).asType());
-            if (typeUtils.contains(erasure, target)) {
+            if (typeUtils.isSubtype(element.asType(), target)) {
                 return element;
             }
         }
         return null;
     }
 
-    public  <T> TypeElement getTypeElement(Class<T> clazz) {
+    /**
+     * find the super type
+     * @return super type with <code>qualifiedClassName</code>. null if not found.
+     */
+    public TypeMirror findTargetSuperType(TypeMirror typeMirror, String qualifiedClassName) {
+        Types typeUtils = getTypeUtils();
+        if (typeMirror.toString().equals(qualifiedClassName)) {
+            return typeMirror;
+        }
+        Optional<? extends TypeMirror> first = typeUtils.directSupertypes(typeMirror).stream()
+                .filter((t)-> typeUtils.erasure(t).toString().equals(qualifiedClassName))
+                .findFirst();
+        if (first.isPresent()) {
+            return first.get();
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * @return converted {@link TypeElement} from {@link Class}
+     */
+    public TypeElement getTypeElement(Class clazz) {
         return processingEnv.getElementUtils().getTypeElement(clazz.getCanonicalName());
     }
 
-    public Types getTypeUtils() {
-        return processingEnv.getTypeUtils();
-    }
-
+    /**
+     * @return first type argument
+     */
     public TypeMirror getFirstTypeArgumentOrDefault(DeclaredType declaredType) {
         List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
         if (typeArguments.size() == 0) {
@@ -138,7 +159,10 @@ public class Context {
         if (taskControllerField == null) {
             return null;
         }
-        return getFirstTypeArgumentOrDefault((DeclaredType) taskControllerField.asType());
+        return getFirstTypeArgumentOrDefault(
+                (DeclaredType) findTargetSuperType(taskControllerField.asType(),
+                TaskController.class.getCanonicalName())
+        );
     }
 
     public String getFunctionsPackageName() {
@@ -147,6 +171,10 @@ public class Context {
 
     public ClassName getFunctionClass(String className) {
         return ClassName.get(getFunctionsPackageName(), className);
+    }
+
+    private Types getTypeUtils() {
+        return processingEnv.getTypeUtils();
     }
 
 }

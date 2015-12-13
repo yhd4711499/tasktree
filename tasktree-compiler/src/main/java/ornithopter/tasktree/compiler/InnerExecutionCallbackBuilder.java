@@ -27,18 +27,16 @@ class InnerExecutionCallbackBuilder {
         TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(ctx.innerCallbackClassName.simpleName())
                 .addModifiers(PUBLIC);
 
-        MethodSpec.Builder onProgressBuilder;
         TypeMirror taskControllerType = ctx.getTaskControllerType();
         TypeName progressType = taskControllerType == null ?
                 TypeName.OBJECT : TypeName.get(taskControllerType);
-
         ParameterizedTypeName superClassTypeName = ParameterizedTypeName.get(
                 executionCallbackClassName,
                 progressType);
         typeSpecBuilder.addSuperinterface(superClassTypeName);
 
+        MethodSpec.Builder onProgressBuilder;
         String onProgressParameterName = "progress";
-
         onProgressBuilder = MethodSpec.methodBuilder("onProgress")
                 .addModifiers(PUBLIC)
                 .addParameter(
@@ -105,9 +103,7 @@ class InnerExecutionCallbackBuilder {
         List<MethodSpec> methodSpecs = new ArrayList<>();
         methodSpecs.add(onSuccessBuilder.build());
         methodSpecs.add(onErrorBuilder.build());
-        if (onProgressBuilder != null) {
-            methodSpecs.add(onProgressBuilder.build());
-        }
+        methodSpecs.add(onProgressBuilder.build());
         methodSpecs.add(onCanceledBuilder.build());
 
         typeSpecBuilder.addMethods(methodSpecs);

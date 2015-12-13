@@ -30,7 +30,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 
@@ -53,7 +52,7 @@ import static javax.lang.model.element.Modifier.STATIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
 @AutoService(Processor.class)
-@SupportedSourceVersion(SourceVersion.RELEASE_7)
+@SupportedSourceVersion(SourceVersion.RELEASE_8)
 public class TaskTreeProcessor extends AbstractProcessor {
 
     private static final String TASK_CLASS_POSTFIX = "Task";
@@ -136,14 +135,12 @@ public class TaskTreeProcessor extends AbstractProcessor {
         List<TypeName> typeNames = new ArrayList<>();
         typeNames.add(context.wrappedTaskClassName.nestedClass(context.innerCallbackClassName.simpleName()));
         if (context.taskControllerField != null) {
-            List<? extends TypeMirror> typeParameters = ((DeclaredType) context.taskControllerField.asType()).getTypeArguments();
             TypeName typeName;
-            if (typeParameters.size() == 0) {
+            TypeMirror taskControllerType = context.getTaskControllerType();
+            if (taskControllerType == null) {
                 typeName = TypeName.OBJECT;
-            } else if (typeParameters.size() == 1) {
-                typeName = TypeName.get(typeParameters.get(0));
             } else {
-                throw new Exception("only one parameter type is allowed!");
+                typeName = TypeName.get(taskControllerType);
             }
             typeNames.add(typeName);
         } else {
@@ -167,8 +164,6 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 TypeName.get(element.asType()),
                 context.taskImplFieldName,
                 Modifier.PRIVATE).initializer("new $L()", element.asType()).build();
-
-
         typeSpecBuilder.addField(fieldSpec);
     }
 
@@ -190,10 +185,12 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 .returns(context.wrappedTaskClassName);
 
         String taskInstanceName = "task";
-        methodBuilder.addStatement("$L $L = new $L()", context.wrappedTaskClassName, taskInstanceName, context.wrappedTaskClassName);
+        methodBuilder.addStatement("$L $L = new $L()",
+                context.wrappedTaskClassName, taskInstanceName, context.wrappedTaskClassName);
         for (ParameterSpec param :
                 args) {
-            methodBuilder.addStatement("$L.$L.$L = $L", taskInstanceName, context.taskImplFieldName, param.name, param.name);
+            methodBuilder.addStatement("$L.$L.$L = $L",
+                    taskInstanceName, context.taskImplFieldName, param.name, param.name);
         }
         methodBuilder.addStatement("return $L", taskInstanceName);
 
@@ -267,9 +264,11 @@ public class TaskTreeProcessor extends AbstractProcessor {
                         "                }\n" +
                         "            }\n" +
                         "        }", ClassName.get(Func1.class), funcTypeName, funcTypeName, context.wrappedTaskClassName).build();
-                executeBuilder.addStatement("$L.$L = new $L(this, $L)", context.taskImplFieldName, context.taskControllerField.getSimpleName(), context.taskControllerField.asType(), codeBlock);
+                executeBuilder.addStatement("$L.$L = new $L(this, $L)",
+                        context.taskImplFieldName, context.taskControllerField.getSimpleName(), context.taskControllerField.asType(), codeBlock);
             } else {
-                executeBuilder.addStatement("$L.$L = new $L(this, null)", context.taskImplFieldName, context.taskControllerField.getSimpleName(), context.taskControllerField.asType());
+                executeBuilder.addStatement("$L.$L = new $L(this, null)",
+                        context.taskImplFieldName, context.taskControllerField.getSimpleName(), context.taskControllerField.asType());
             }
         }
 
@@ -343,7 +342,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
     }
 
     private List<Element> getFieldsWithAnnotation(Element element, Class<? extends Annotation> clazz) {
-        List<Element> inputFields = new ArrayList<>();
+        List<Element> fields = new ArrayList<>();
         List<? extends Element> enclosedElements = ElementFilter.fieldsIn(element.getEnclosedElements());
         for (Element enclosedElement :
                 enclosedElements) {
@@ -352,10 +351,10 @@ public class TaskTreeProcessor extends AbstractProcessor {
                         || isBindingInWrongPackage(clazz, enclosedElement)) {
                     continue;
                 }
-                inputFields.add(enclosedElement);
+                fields.add(enclosedElement);
             }
         }
-        return inputFields;
+        return fields;
     }
 
     private boolean isInaccessibleViaGeneratedCode(Class<? extends Annotation> annotationClass,

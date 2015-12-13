@@ -1,11 +1,14 @@
 package ornithopter.demo.tasktree;
 
+import org.jetbrains.annotations.Nullable;
+
 import ornithopter.tasktree.TaskController;
 import ornithopter.tasktree.annotations.Execution;
 import ornithopter.tasktree.annotations.Inject;
 import ornithopter.tasktree.annotations.Input;
 import ornithopter.tasktree.annotations.Output;
 import ornithopter.tasktree.annotations.Task;
+import ornithopter.tasktree.functions.Func1;
 
 /**
  * @author Ornithopter on 2015/11/15.
@@ -19,12 +22,25 @@ class Helloworld {
     @Output String greetings;
 
     @Inject
-    TaskController<String> taskController;
+    HelloTaskController taskController;
 
     @Execution void execute() {
         taskController.progress("I'm thinking...");
         greetings = "Hello " + name + ". You're ";
         greetings += (age > 26 ? "older" : "younger") + " than me.";
         taskController.success();
+    }
+}
+
+class HelloTaskController extends TaskController<String> {
+
+    /**
+     * @param task          the task you want to control
+     * @param cancelPending used as a delegate for rx task to check whether subscriber is unSubscribed or not.
+     *                      passing null if this task is not a rx task.
+     * @throws IllegalStateException if task has a taskController already.
+     */
+    public HelloTaskController(ornithopter.tasktree.Task<?, String> task, @Nullable Func1<ornithopter.tasktree.Task<?, String>, Boolean> cancelPending) throws IllegalStateException {
+        super(task, cancelPending);
     }
 }

@@ -44,7 +44,7 @@ public class TaskController<T> extends TaskBean<T> {
     }
 
     /**
-     * @return the task about to cancel.
+     * @return the task is about to cancel.
      */
     public boolean isCancelPending() {
         if (cancelPendingFunc == null) {
