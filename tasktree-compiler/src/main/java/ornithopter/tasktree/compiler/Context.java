@@ -53,8 +53,6 @@ public class Context {
 
     public ClassName resultClassName;
 
-    public boolean asyncFinish;
-
     /* =============== annotated elements =============== */
     /**
      * all fields with {@link ornithopter.tasktree.annotations.Output}
@@ -95,7 +93,7 @@ public class Context {
     public ProcessingEnvironment processingEnv;
 
     /**
-     * @return list of elements which is annotated with {@link Inject} and also subtype of <code>clazz</code>.
+     * @return list of elements which is annotated with {@link Inject} and also subtype of {@code clazz}.
      * <p>empty list if no suitable elements.
      * <p>Note: this list is immutable!
      */
@@ -106,7 +104,7 @@ public class Context {
     }
 
     /**
-     * @return true if type of <code>elm</code> is subtype of <code>clazz</code>.
+     * @return true if type of {@code elm} is subtype of {@code clazz}.
      */
     public boolean isSubType(Class<?> clazz, Element elm) {
         Types typeUtils = getTypeUtils();
@@ -115,7 +113,7 @@ public class Context {
     }
 
     /**
-     * @return element which is annotated with {@link Inject} and also subtype of <code>clazz</code>.
+     * @return element which is annotated with {@link Inject} and also subtype of {@code clazz}.
      * <p>null if not found.
      */
     public Element getInjectFieldOrDefault(Class<?> clazz) {
@@ -124,8 +122,8 @@ public class Context {
     }
 
     /**
-     * find the super type of <code>typeMirror</code>
-     * @return super type with <code>qualifiedClassName</code>. null if not found.
+     * find the super type of {@code typeMirror}
+     * @return super type with {@code qualifiedClassName}. null if not found.
      */
     public TypeMirror findTargetSuperType(TypeMirror typeMirror, String qualifiedClassName) {
         Types typeUtils = getTypeUtils();

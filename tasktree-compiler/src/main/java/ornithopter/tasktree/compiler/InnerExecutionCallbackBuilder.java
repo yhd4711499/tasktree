@@ -13,6 +13,7 @@ import java.util.List;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 
+import ornithopter.tasktree.ExecutionCallback;
 import ornithopter.tasktree.compiler.utils.StringUtils;
 
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -23,7 +24,7 @@ import static javax.lang.model.element.Modifier.PUBLIC;
 class InnerExecutionCallbackBuilder {
 
     public TypeSpec build(Context ctx) {
-        ClassName executionCallbackClassName = ClassName.get(ctx.taskBaseClassName.packageName(), "ExecutionCallback");
+        ClassName executionCallbackClassName = ClassName.get(ExecutionCallback.class);
         TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(ctx.innerCallbackClassName.simpleName())
                 .addModifiers(PUBLIC);
 

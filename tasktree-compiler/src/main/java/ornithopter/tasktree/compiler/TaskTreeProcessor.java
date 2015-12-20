@@ -174,8 +174,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
     private void processBuildMethod(TypeSpec.Builder typeSpecBuilder) {
         List<ParameterSpec> args = new ArrayList<>();
 
-        for (Element inputField :
-                context.inputFields) {
+        for (Element inputField : context.inputFields) {
             ParameterSpec parameterSpec = ParameterSpec.builder(
                     TypeName.get(inputField.asType()),
                     inputField.getSimpleName().toString())
@@ -191,8 +190,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
         String taskInstanceName = "task";
         methodBuilder.addStatement("$T $L = new $T()",
                 context.wrappedTaskClassName, taskInstanceName, context.wrappedTaskClassName);
-        for (ParameterSpec param :
-                args) {
+        for (ParameterSpec param : args) {
             methodBuilder.addStatement("$L.$L.$L = $L",
                     taskInstanceName, context.taskImplFieldName, param.name, param.name);
         }
