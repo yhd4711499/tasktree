@@ -17,6 +17,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 
 import ornithopter.tasktree.TaskController;
+import ornithopter.tasktree.annotations.Inject;
 
 /**
  * @author Ornithopter on 2015/11/22.
@@ -40,6 +41,10 @@ public class Context {
      * rx support
      */
     public boolean rxEnabled;
+    /**
+     *
+     */
+    public boolean useShortTask;
 
     /* =============== rx =============== */
     public String rxSubscriberFieldName;
@@ -89,39 +94,42 @@ public class Context {
     /* =============== language utils =============== */
     public ProcessingEnvironment processingEnv;
 
-    public <T> List<Element> getInjectField(Class<T> clazz) {
+    /**
+     * @return list of elements which is annotated with {@link Inject} and also subtype of <code>clazz</code>.
+     * <p>empty list if no suitable elements.
+     * <p>Note: this list is immutable!
+     */
+    public List<Element> getInjectField(Class<?> clazz) {
         ImmutableList.Builder<Element> builder = ImmutableList.builder();
-        for (Element element :
-                injectFields) {
-            Types typeUtils = getTypeUtils();
-            TypeMirror erasure = typeUtils.erasure(element.asType());
-            TypeMirror target = processingEnv.getElementUtils().getTypeElement(clazz.toString()).asType();
-            if (typeUtils.contains(erasure, target)) {
-                builder.add(element);
-            }
-        }
+        injectFields.stream().filter(elm -> isSubType(clazz, elm)).forEach(builder::add);
         return builder.build();
     }
 
-    public <T> Element getInjectFieldOrDefault(Class<T> clazz) {
-        for (Element element :
-                injectFields) {
-            Types typeUtils = getTypeUtils();
-            TypeMirror target = typeUtils.erasure(getTypeElement(clazz).asType());
-            if (typeUtils.isSubtype(element.asType(), target)) {
-                return element;
-            }
-        }
-        return null;
+    /**
+     * @return true if type of <code>elm</code> is subtype of <code>clazz</code>.
+     */
+    public boolean isSubType(Class<?> clazz, Element elm) {
+        Types typeUtils = getTypeUtils();
+        TypeMirror target = typeUtils.erasure(getTypeElement(clazz).asType());
+        return typeUtils.isSubtype(elm.asType(), target);
     }
 
     /**
-     * find the super type
+     * @return element which is annotated with {@link Inject} and also subtype of <code>clazz</code>.
+     * <p>null if not found.
+     */
+    public Element getInjectFieldOrDefault(Class<?> clazz) {
+        Optional<Element> optional = getInjectField(clazz).stream().findFirst();
+        return optional.isPresent() ? optional.get() : null;
+    }
+
+    /**
+     * find the super type of <code>typeMirror</code>
      * @return super type with <code>qualifiedClassName</code>. null if not found.
      */
     public TypeMirror findTargetSuperType(TypeMirror typeMirror, String qualifiedClassName) {
         Types typeUtils = getTypeUtils();
-        if (typeMirror.toString().equals(qualifiedClassName)) {
+        if (typeUtils.erasure(typeMirror).toString().equals(qualifiedClassName)) {
             return typeMirror;
         }
         Optional<? extends TypeMirror> first = typeUtils.directSupertypes(typeMirror).stream()
@@ -153,15 +161,16 @@ public class Context {
     }
 
     /**
-     * @return null if no
+     * @return the type argument of {@link TaskController}. null if no {@link TaskController} is present.
      */
-    public @Nullable TypeMirror getTaskControllerType() {
+    public @Nullable TypeMirror getTaskControllerTypeArgument() {
         if (taskControllerField == null) {
             return null;
         }
         return getFirstTypeArgumentOrDefault(
-                (DeclaredType) findTargetSuperType(taskControllerField.asType(),
-                TaskController.class.getCanonicalName())
+                (DeclaredType) findTargetSuperType(
+                        taskControllerField.asType(),
+                        TaskController.class.getCanonicalName())
         );
     }
 

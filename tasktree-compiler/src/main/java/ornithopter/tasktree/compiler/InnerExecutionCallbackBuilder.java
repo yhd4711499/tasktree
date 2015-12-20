@@ -27,7 +27,7 @@ class InnerExecutionCallbackBuilder {
         TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(ctx.innerCallbackClassName.simpleName())
                 .addModifiers(PUBLIC);
 
-        TypeMirror taskControllerType = ctx.getTaskControllerType();
+        TypeMirror taskControllerType = ctx.getTaskControllerTypeArgument();
         TypeName progressType = taskControllerType == null ?
                 TypeName.OBJECT : TypeName.get(taskControllerType);
         ParameterizedTypeName superClassTypeName = ParameterizedTypeName.get(

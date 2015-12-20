@@ -1,6 +1,8 @@
 package ornithopter.demo.tasktree;
 
+import ornithopter.tasktree.TaskController;
 import ornithopter.tasktree.annotations.Execution;
+import ornithopter.tasktree.annotations.Inject;
 import ornithopter.tasktree.annotations.Input;
 import ornithopter.tasktree.annotations.Output;
 import ornithopter.tasktree.annotations.Task;
@@ -16,12 +18,12 @@ class HelloworldRx {
 
     @Output String greetings;
 
-//    @Inject
-//    TaskController<String> taskController;
+    @Inject
+    TaskController<String> taskController;
 
     @Execution void execute() {
-//        taskController.progress("I'm thinking...");
+        taskController.progress("I'm thinking...");
         greetings = name;
-//        taskController.success();
+        taskController.success();
     }
 }

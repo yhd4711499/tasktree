@@ -3,7 +3,6 @@ package ornithopter.tasktree.compiler;
 import com.google.auto.common.SuperficialValidation;
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -33,6 +32,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 
+import ornithopter.tasktree.ExecutionCallback;
 import ornithopter.tasktree.TaskController;
 import ornithopter.tasktree.annotations.Execution;
 import ornithopter.tasktree.annotations.Inject;
@@ -81,7 +81,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
             context = new Context();
             context.taskBaseClassName = ClassName.get(ornithopter.tasktree.Task.class);
             context.processingEnv = processingEnv;
-
+            context.useShortTask = true;
             Task annotation = element.getAnnotation(Task.class);
             context.rxEnabled = annotation.rx();
             try {
@@ -136,7 +136,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
         typeNames.add(context.wrappedTaskClassName.nestedClass(context.innerCallbackClassName.simpleName()));
         if (context.taskControllerField != null) {
             TypeName typeName;
-            TypeMirror taskControllerType = context.getTaskControllerType();
+            TypeMirror taskControllerType = context.getTaskControllerTypeArgument();
             if (taskControllerType == null) {
                 typeName = TypeName.OBJECT;
             } else {
@@ -147,10 +147,14 @@ public class TaskTreeProcessor extends AbstractProcessor {
             typeNames.add(TypeName.OBJECT);
         }
         ParameterizedTypeName superClassTypeName;
-        if (typeNames.size() == 2) {
-            superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(0), typeNames.get(1));
+        if (context.useShortTask) {
+            superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(1));
         } else {
-            superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(0));
+            if (typeNames.size() == 2) {
+                superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(0), typeNames.get(1));
+            } else {
+                superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(0));
+            }
         }
 
         context.wrappedTaskSuperClassTypeName = superClassTypeName;
@@ -163,7 +167,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
         FieldSpec fieldSpec = FieldSpec.builder(
                 TypeName.get(element.asType()),
                 context.taskImplFieldName,
-                Modifier.PRIVATE).initializer("new $L()", element.asType()).build();
+                Modifier.PRIVATE).initializer("new $T()", element.asType()).build();
         typeSpecBuilder.addField(fieldSpec);
     }
 
@@ -185,7 +189,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 .returns(context.wrappedTaskClassName);
 
         String taskInstanceName = "task";
-        methodBuilder.addStatement("$L $L = new $L()",
+        methodBuilder.addStatement("$T $L = new $T()",
                 context.wrappedTaskClassName, taskInstanceName, context.wrappedTaskClassName);
         for (ParameterSpec param :
                 args) {
@@ -202,14 +206,18 @@ public class TaskTreeProcessor extends AbstractProcessor {
         List<Element> outputFields = context.outputFields;
         args.addAll(outputFields.stream().map(outputField -> context.taskImplFieldName + "." + outputField.getSimpleName().toString()).collect(Collectors.toList()));
 
-        MethodSpec method = MethodSpec.methodBuilder("callSuccess")
+        MethodSpec.Builder builder = MethodSpec.methodBuilder("callSuccess")
                 .addModifiers(PROTECTED)
-                .addParameter(context.innerCallbackClassName, "callback")
-                .returns(void.class)
-                .addStatement("callback.onSuccess($L)", StringUtils.join(args, ", "))
-                .build();
+                .addParameter(TypeName.get(ExecutionCallback.class), "callback")
+                .returns(void.class);
 
-        typeSpecBuilder.addMethod(method);
+        if (context.useShortTask) {
+            builder.addStatement("(($T) callback).onSuccess($L)", context.innerCallbackClassName, StringUtils.join(args, ", "));
+        } else {
+            builder.addStatement("callback.onSuccess($L)", StringUtils.join(args, ", "));
+        }
+
+        typeSpecBuilder.addMethod(builder.build());
     }
 
     private void processExecuteMethod(TypeSpec.Builder typeSpecBuilder) {
@@ -251,28 +259,35 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 .returns(void.class);
 
         if (context.taskControllerField != null) {
-            if (context.rxEnabled && context.getTaskControllerType() != null) {
-                String funcTypeName = context.taskBaseClassName.simpleName() + "<?," + context.getTaskControllerType() + ">";
-                CodeBlock codeBlock = CodeBlock.builder().add("" +
-                        "new $L<$L, Boolean>() {\n" +
-                        "            @Override\n" +
-                        "            public Boolean call($L task) {\n" +
-                        "                if (task != null) {\n" +
-                        "                    return (($L)task).subscriber.isUnsubscribed();\n" +
-                        "                } else {\n" +
-                        "                    return false;\n" +
-                        "                }\n" +
-                        "            }\n" +
-                        "        }", ClassName.get(Func1.class), funcTypeName, funcTypeName, context.wrappedTaskClassName).build();
-                executeBuilder.addStatement("$L.$L = new $L(this, $L)",
-                        context.taskImplFieldName, context.taskControllerField.getSimpleName(), context.taskControllerField.asType(), codeBlock);
+            if (context.rxEnabled && context.getTaskControllerTypeArgument() != null) {
+                TypeSpec anony = TypeSpec.anonymousClassBuilder("")
+                        .addSuperinterface(ParameterizedTypeName.get(
+                                ClassName.get(Func1.class),
+                                context.wrappedTaskSuperClassTypeName,
+                                TypeName.get(Boolean.class)))
+                        .addMethod(MethodSpec.methodBuilder("call")
+                                .addAnnotation(Override.class)
+                                .addModifiers(Modifier.PUBLIC)
+                                .addParameter(context.wrappedTaskSuperClassTypeName, "task")
+                                .returns(Boolean.class)
+                                .beginControlFlow("if (task != null)")
+                                    .addStatement("return (($T)task).subscriber.isUnsubscribed()", context.wrappedTaskClassName)
+                                .endControlFlow()
+                                .beginControlFlow("else")
+                                    .addStatement("return false")
+                                .endControlFlow()
+                                .build())
+                        .build();
+
+                executeBuilder.addStatement("$L.$L = new $T(this, $L)",
+                        context.taskImplFieldName, context.taskControllerField.getSimpleName(), context.taskControllerField.asType(), anony);
             } else {
-                executeBuilder.addStatement("$L.$L = new $L(this, null)",
+                executeBuilder.addStatement("$L.$L = new $T(this, null)",
                         context.taskImplFieldName, context.taskControllerField.getSimpleName(), context.taskControllerField.asType());
             }
         }
 
-        executeBuilder.addStatement("execute(new $L())", context.innerCallbackClassName);
+        executeBuilder.addStatement("execute(new $T())", context.innerCallbackClassName);
         typeSpecBuilder.addMethod(executeBuilder.build());
     }
 
@@ -290,7 +305,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 .addModifiers(PUBLIC)
                 .addStatement("successCallback = callback")
                 .addStatement("return this")
-                .returns(context.wrappedTaskClassName);
+                .returns(context.wrappedTaskSuperClassTypeName);
         typeSpecBuilder.addMethod(methodBuilder.build());
 
         typeSpecBuilder.addField(parameterizedTypeName, "successCallback");
@@ -307,10 +322,10 @@ public class TaskTreeProcessor extends AbstractProcessor {
 
         builder.addMethod(MethodSpec.methodBuilder("asObservable")
                 .addModifiers(Modifier.PUBLIC)
-                .addCode("return $L.create(new $L<$L>() {\n" +
+                .addCode("return $L.create(new $T<$T>() {\n" +
                                 "  @Override\n" +
-                                "  public void call($L<? super $L> subscriber) {\n" +
-                                "    $L.this.$L = subscriber;\n" +
+                                "  public void call($T<? super $T> subscriber) {\n" +
+                                "    $T.this.$L = subscriber;\n" +
                                 "    execute();\n" +
                                 "  }\n" +
                                 "});\n"
@@ -336,7 +351,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
 
         builder.addField(
                 FieldSpec.builder(context.resultClassName, context.resultFieldName, Modifier.PRIVATE)
-                        .initializer("new $L()", context.resultClassName)
+                        .initializer("new $T()", context.resultClassName)
                         .build()
         );
     }

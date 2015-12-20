@@ -13,7 +13,7 @@ import ornithopter.tasktree.functions.Func1;
  */
 public class TaskController<T> extends TaskBean<T> {
 
-    private Func1<Task<?, T>, Boolean> cancelPendingFunc;
+    private Func1<Task<T>, Boolean> cancelPendingFunc;
     private boolean cancelPendingFlag;
 
     /**
@@ -22,7 +22,7 @@ public class TaskController<T> extends TaskBean<T> {
      *                      passing null if this task is not a rx task.
      * @throws IllegalStateException if task has a taskController already.
      */
-    public TaskController(Task<?, T> task, @Nullable Func1<Task<?, T>, Boolean> cancelPending) throws IllegalStateException {
+    public TaskController(Task<T> task, @Nullable Func1<Task<T>, Boolean> cancelPending) throws IllegalStateException {
         super(task);
         if (task.taskController != null) {
             throw new IllegalStateException("You can't replace the exist taskController in a task.");
@@ -32,7 +32,7 @@ public class TaskController<T> extends TaskBean<T> {
     }
 
     public void progress(T progress) {
-        Task<?, T> task = getTask();
+        Task<T> task = getTask();
         if (task != null && task.progressCallback != null) {
             try {
                 task.progressCallback.call(progress);
@@ -58,7 +58,7 @@ public class TaskController<T> extends TaskBean<T> {
     }
 
     public void success() {
-        Task<?, T> task = getTask();
+        Task<T> task = getTask();
         if (task != null) {
             task.succeedFromCallback();
         }
@@ -76,8 +76,8 @@ public class TaskController<T> extends TaskBean<T> {
      * @return The task. Invoke {@link #error} and return null if task not exist.
      */
     @Override
-    protected Task<?, T> getTask() {
-        Task<?, T> task = super.getTask();
+    protected Task<T> getTask() {
+        Task<T> task = super.getTask();
         if (task == null) {
             // // TODO: 2015/11/29 specify an Exception when task not exists.
             error(null);

@@ -7,7 +7,7 @@ import ornithopter.tasktree.functions.Action1;
 /**
  * @author Ornithopter on 2015/11/15.
  */
-public abstract class Task<TCB extends ExecutionCallback<TProgress>, TProgress> {
+public abstract class Task<TProgress> {
 
     protected Action1<TProgress> progressCallback;
     protected Action0 startedCallback;
@@ -16,7 +16,7 @@ public abstract class Task<TCB extends ExecutionCallback<TProgress>, TProgress> 
 
     protected TaskController<TProgress> taskController;
 
-    private TCB callback;
+    private ExecutionCallback<TProgress> callback;
 
     private Task prependedTask;
     private Task appendedTask;
@@ -34,32 +34,32 @@ public abstract class Task<TCB extends ExecutionCallback<TProgress>, TProgress> 
      */
     public abstract void execute();
 
-    public Task<TCB, TProgress> onProgress(Action1<TProgress> callback) {
+    public Task<TProgress> onProgress(Action1<TProgress> callback) {
         progressCallback = callback;
         return this;
     }
 
-    public Task<TCB, TProgress> onStarted(Action0 callback) {
+    public Task<TProgress> onStarted(Action0 callback) {
         startedCallback = callback;
         return this;
     }
 
-    public Task<TCB, TProgress> onCanceled(Action0 callback) {
+    public Task<TProgress> onCanceled(Action0 callback) {
         canceledCallback = callback;
         return this;
     }
 
-    public Task<TCB, TProgress> onError(Action1<Throwable> callback) {
+    public Task<TProgress> onError(Action1<Throwable> callback) {
         errorCallback = callback;
         return this;
     }
 
-    public Task<TCB, TProgress> prepend(Task task) {
+    public Task<TProgress> prepend(Task task) {
         prependedTask = task;
         return this;
     }
 
-    public Task<TCB, TProgress> append(Task task) {
+    public Task<TProgress> append(Task task) {
         appendedTask = task;
         return this;
     }
@@ -70,11 +70,11 @@ public abstract class Task<TCB extends ExecutionCallback<TProgress>, TProgress> 
         }
     }
 
-    protected abstract void callSuccess(TCB executionCallback);
+    protected abstract void callSuccess(ExecutionCallback executionCallback);
 
     protected abstract void executeInternal();
 
-    protected void execute(TCB callback) {
+    protected <T extends ExecutionCallback<TProgress>> void execute(T callback) {
         this.callback = callback;
         try {
             if (startedCallback != null) {

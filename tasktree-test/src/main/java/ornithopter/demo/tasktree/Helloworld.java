@@ -40,7 +40,7 @@ class HelloTaskController extends TaskController<String> {
      *                      passing null if this task is not a rx task.
      * @throws IllegalStateException if task has a taskController already.
      */
-    public HelloTaskController(ornithopter.tasktree.Task<?, String> task, @Nullable Func1<ornithopter.tasktree.Task<?, String>, Boolean> cancelPending) throws IllegalStateException {
+    public HelloTaskController(ornithopter.tasktree.Task<String> task, @Nullable Func1<ornithopter.tasktree.Task<String>, Boolean> cancelPending) throws IllegalStateException {
         super(task, cancelPending);
     }
 }
