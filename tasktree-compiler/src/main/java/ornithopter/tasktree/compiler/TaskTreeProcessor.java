@@ -41,8 +41,6 @@ import ornithopter.tasktree.annotations.Output;
 import ornithopter.tasktree.annotations.Task;
 import ornithopter.tasktree.compiler.utils.StringUtils;
 import ornithopter.tasktree.functions.Func1;
-import rx.Observable;
-import rx.Subscriber;
 
 import static javax.lang.model.element.ElementKind.CLASS;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -241,7 +239,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
             }
         }
         if (executionElement == null) {
-            throw new IllegalArgumentException("one Execution method must be annotated!");
+            throw new IllegalArgumentException("an Execution method must be annotated!");
         }
 
         MethodSpec.Builder executeInternalBuilder = MethodSpec.methodBuilder("executeInternal")
@@ -310,13 +308,13 @@ public class TaskTreeProcessor extends AbstractProcessor {
     }
 
     private void processAsObservableMethod(TypeSpec.Builder builder) {
-        ClassName observableClassName = ClassName.get(Observable.class);
-        ClassName onSubscribeClassName = ClassName.get(Observable.OnSubscribe.class);
-        ClassName subscriberClassName = ClassName.get(Subscriber.class);
+        ClassName observableClassName = ClassName.get("rx", "Observable");
+        ClassName onSubscribeClassName = ClassName.get("rx", "Observable.OnSubscribe");
+        ClassName subscriberClassName = ClassName.get("rx", "Subscriber");
 
         builder.addField(subscriberClassName, context.rxSubscriberFieldName);
 
-        ParameterizedTypeName returnTypeName = ParameterizedTypeName.get(ClassName.get(Observable.class), context.resultClassName);
+        ParameterizedTypeName returnTypeName = ParameterizedTypeName.get(observableClassName, context.resultClassName);
 
         builder.addMethod(MethodSpec.methodBuilder("asObservable")
                 .addModifiers(Modifier.PUBLIC)
