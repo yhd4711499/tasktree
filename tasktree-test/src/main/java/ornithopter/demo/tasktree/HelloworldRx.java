@@ -18,8 +18,7 @@ class HelloworldRx {
 
     @Output String greetings;
 
-    @Inject
-    TaskController<String> taskController;
+    @Inject TaskController<String> taskController;
 
     @Execution void execute() {
         taskController.progress("I'm thinking...");

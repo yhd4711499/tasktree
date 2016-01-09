@@ -40,7 +40,7 @@ import ornithopter.tasktree.annotations.Input;
 import ornithopter.tasktree.annotations.Output;
 import ornithopter.tasktree.annotations.Task;
 import ornithopter.tasktree.compiler.utils.StringUtils;
-import ornithopter.tasktree.functions.Func1;
+import ornithopter.tasktree.functions.Func0;
 
 import static javax.lang.model.element.ElementKind.CLASS;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -83,7 +83,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
             Task annotation = element.getAnnotation(Task.class);
             context.rxEnabled = annotation.rx();
             try {
-                context.packageElement = element.getEnclosingElement().asType();
+                context.packageElement = element.getEnclosingElement();
                 context.wrappedTaskClassName = ClassName.get(context.packageElement.toString(), element.getSimpleName().toString() + TASK_CLASS_POSTFIX);
                 TypeSpec.Builder typeSpecBuilder = TypeSpec.classBuilder(context.wrappedTaskClassName.simpleName())
                         .addModifiers(PUBLIC);
@@ -105,15 +105,25 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 context.resultClassName = context.wrappedTaskClassName.nestedClass("Result");
 
                 processTaskField(typeSpecBuilder);
+
                 processSuperClass(typeSpecBuilder);
+
                 processCallSuccessMethod(typeSpecBuilder);
-                processOnSuccessMethod(typeSpecBuilder);
+
                 processExecuteMethod(typeSpecBuilder);
+//                processFireProgressMethod(typeSpecBuilder);
+
                 processBuildMethod(typeSpecBuilder);
 
                 if (context.rxEnabled) {
                     processAsObservableMethod(typeSpecBuilder);
                     processResultTypeAndField(typeSpecBuilder);
+                } else {
+                    processOnSuccessMethod(typeSpecBuilder);
+                    processOnErrorMethod(typeSpecBuilder);
+                    processOnProgressMethod(typeSpecBuilder);
+                    processOnStartedMethod(typeSpecBuilder);
+                    processOnCanceledMethod(typeSpecBuilder);
                 }
 
                 JavaFile.builder(context.packageElement.toString(), typeSpecBuilder.build())
@@ -130,34 +140,34 @@ public class TaskTreeProcessor extends AbstractProcessor {
 
     private void processSuperClass(TypeSpec.Builder typeSpecBuilder) throws Exception {
         typeSpecBuilder.addType(new InnerExecutionCallbackBuilder().build(context));
-        List<TypeName> typeNames = new ArrayList<>();
-        typeNames.add(context.wrappedTaskClassName.nestedClass(context.innerCallbackClassName.simpleName()));
-        if (context.taskControllerField != null) {
-            TypeName typeName;
-            TypeMirror taskControllerType = context.getTaskControllerTypeArgument();
-            if (taskControllerType == null) {
-                typeName = TypeName.OBJECT;
-            } else {
-                typeName = TypeName.get(taskControllerType);
-            }
-            typeNames.add(typeName);
-        } else {
-            typeNames.add(TypeName.OBJECT);
-        }
-        ParameterizedTypeName superClassTypeName;
-        if (context.useShortTask) {
-            superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(1));
-        } else {
-            if (typeNames.size() == 2) {
-                superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(0), typeNames.get(1));
-            } else {
-                superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(0));
-            }
-        }
+//        List<TypeName> typeNames = new ArrayList<>();
+//        typeNames.add(context.wrappedTaskClassName.nestedClass(context.innerCallbackClassName.simpleName()));
+//        if (context.taskControllerField != null) {
+//            TypeName typeName;
+//            TypeMirror taskControllerType = context.getTaskControllerTypeArgument();
+//            if (taskControllerType == null) {
+//                typeName = TypeName.OBJECT;
+//            } else {
+//                typeName = TypeName.get(taskControllerType);
+//            }
+//            typeNames.add(typeName);
+//        } else {
+//            typeNames.add(TypeName.OBJECT);
+//        }
+//        ParameterizedTypeName superClassTypeName;
+//        if (context.useShortTask) {
+//            superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(1));
+//        } else {
+//            if (typeNames.size() == 2) {
+//                superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(0), typeNames.get(1));
+//            } else {
+//                superClassTypeName = ParameterizedTypeName.get(context.taskBaseClassName, typeNames.get(0));
+//            }
+//        }
 
-        context.wrappedTaskSuperClassTypeName = superClassTypeName;
+        context.wrappedTaskSuperClassTypeName = context.taskBaseClassName;
 
-        typeSpecBuilder.superclass(superClassTypeName);
+        typeSpecBuilder.superclass(context.taskBaseClassName);
     }
 
     private void processTaskField(TypeSpec.Builder typeSpecBuilder) {
@@ -246,6 +256,13 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 .addModifiers(PROTECTED)
                 .returns(void.class);
 
+        if (!context.rxEnabled) {
+            executeInternalBuilder
+                    .beginControlFlow("if ($L != null)", "startedCallback")
+                    .addStatement("$L.call()", "startedCallback")
+                    .endControlFlow();
+        }
+
         executeInternalBuilder.addStatement("$L.$L()", context.taskImplFieldName, executionElement.getSimpleName());
 
         typeSpecBuilder.addMethod(executeInternalBuilder.build());
@@ -258,16 +275,14 @@ public class TaskTreeProcessor extends AbstractProcessor {
             if (context.rxEnabled && context.getTaskControllerTypeArgument() != null) {
                 TypeSpec anony = TypeSpec.anonymousClassBuilder("")
                         .addSuperinterface(ParameterizedTypeName.get(
-                                ClassName.get(Func1.class),
-                                context.wrappedTaskSuperClassTypeName,
+                                ClassName.get(Func0.class),
                                 TypeName.get(Boolean.class)))
                         .addMethod(MethodSpec.methodBuilder("call")
                                 .addAnnotation(Override.class)
                                 .addModifiers(Modifier.PUBLIC)
-                                .addParameter(context.wrappedTaskSuperClassTypeName, "task")
                                 .returns(Boolean.class)
-                                .beginControlFlow("if (task != null)")
-                                    .addStatement("return (($T)task).subscriber.isUnsubscribed()", context.wrappedTaskClassName)
+                                .beginControlFlow("if (subscriber != null)")
+                                    .addStatement("return subscriber.isUnsubscribed()")
                                 .endControlFlow()
                                 .beginControlFlow("else")
                                     .addStatement("return false")
@@ -301,10 +316,72 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 .addModifiers(PUBLIC)
                 .addStatement("successCallback = callback")
                 .addStatement("return this")
-                .returns(context.wrappedTaskSuperClassTypeName);
+                .returns(context.wrappedTaskClassName);
         typeSpecBuilder.addMethod(methodBuilder.build());
 
         typeSpecBuilder.addField(parameterizedTypeName, "successCallback");
+    }
+
+    private void processOnProgressMethod(TypeSpec.Builder typeSpecBuilder) {
+        TypeMirror taskControllerTypeArgument = context.getTaskControllerTypeArgument();
+        if (taskControllerTypeArgument == null) {
+            return;
+        }
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("onProgress");
+
+        ParameterizedTypeName parameterizedTypeName = ParameterizedTypeName.get(
+                context.getFunctionClass("Action1"),
+                TypeName.get(taskControllerTypeArgument));
+
+        methodBuilder.addParameter(parameterizedTypeName, "callback")
+                .addModifiers(PUBLIC)
+                .addStatement("progressCallback = callback")
+                .addStatement("return this")
+                .returns(context.wrappedTaskClassName);
+
+        typeSpecBuilder.addMethod(methodBuilder.build());
+
+        typeSpecBuilder.addField(parameterizedTypeName, "progressCallback");
+    }
+
+    private void processOnErrorMethod(TypeSpec.Builder typeSpecBuilder) {
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("onError");
+
+        ParameterizedTypeName action1 = ParameterizedTypeName.get(context.getFunctionClass("Action1"), ClassName.get(Throwable.class));
+        methodBuilder.addParameter(action1, "callback")
+                .addModifiers(PUBLIC)
+                .addStatement("errorCallback = callback")
+                .addStatement("return this")
+                .returns(context.wrappedTaskClassName);
+
+        typeSpecBuilder.addMethod(methodBuilder.build());
+        typeSpecBuilder.addField(action1, "errorCallback");
+    }
+
+    private void processOnStartedMethod(TypeSpec.Builder typeSpecBuilder) {
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("onStarted");
+
+        methodBuilder.addParameter(context.getFunctionClass("Action0"), "callback")
+                .addModifiers(PUBLIC)
+                .addStatement("startedCallback = callback")
+                .addStatement("return this")
+                .returns(context.wrappedTaskClassName);
+
+        typeSpecBuilder.addMethod(methodBuilder.build());
+        typeSpecBuilder.addField(context.getFunctionClass("Action0"), "startedCallback");
+    }
+
+    private void processOnCanceledMethod(TypeSpec.Builder typeSpecBuilder) {
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("onCancel");
+
+        methodBuilder.addParameter(context.getFunctionClass("Action0"), "callback")
+                .addModifiers(PUBLIC)
+                .addStatement("canceledCallback = callback")
+                .addStatement("return this")
+                .returns(context.wrappedTaskClassName);
+
+        typeSpecBuilder.addMethod(methodBuilder.build());
+        typeSpecBuilder.addField(context.getFunctionClass("Action0"), "canceledCallback");
     }
 
     private void processAsObservableMethod(TypeSpec.Builder builder) {

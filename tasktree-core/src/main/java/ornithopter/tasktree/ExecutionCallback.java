@@ -9,23 +9,17 @@ public interface ExecutionCallback<TProgress> {
      *
      * @param progress progress
      */
-    void onProgress(TProgress progress);
+    void fireProgress(TProgress progress);
 
     /**
      * task was canceled
      */
-    void onCanceled();
+    void fireCancel();
 
     /**
      * task was interrupted by en error
      *
      * @param e error
      */
-    void onError(Throwable e);
-
-//    /**
-//     * task succeed with result data
-//     * @param data result data
-//     */
-//    void onSuccess(Object... data);
+    void fireError(Throwable e);
 }

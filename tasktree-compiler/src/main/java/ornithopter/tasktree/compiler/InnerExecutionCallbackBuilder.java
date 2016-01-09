@@ -30,7 +30,7 @@ class InnerExecutionCallbackBuilder {
 
         TypeMirror taskControllerType = ctx.getTaskControllerTypeArgument();
         TypeName progressType = taskControllerType == null ?
-                TypeName.OBJECT : TypeName.get(taskControllerType);
+                TypeName.VOID.box() : TypeName.get(taskControllerType);
         ParameterizedTypeName superClassTypeName = ParameterizedTypeName.get(
                 executionCallbackClassName,
                 progressType);
@@ -38,30 +38,20 @@ class InnerExecutionCallbackBuilder {
 
         MethodSpec.Builder onProgressBuilder;
         String onProgressParameterName = "progress";
-        onProgressBuilder = MethodSpec.methodBuilder("onProgress")
+        onProgressBuilder = MethodSpec.methodBuilder("fireProgress")
                 .addModifiers(PUBLIC)
                 .addParameter(
                         ParameterSpec.builder(progressType, onProgressParameterName).build())
-                .beginControlFlow("if (progressCallback != null)")
-                .addStatement("progressCallback.call($L)", onProgressParameterName)
-                .endControlFlow()
                 .returns(void.class);
 
-        MethodSpec.Builder onCanceledBuilder = MethodSpec.methodBuilder("onCanceled")
+        MethodSpec.Builder onCanceledBuilder = MethodSpec.methodBuilder("fireCancel")
                 .addModifiers(PUBLIC)
-                .beginControlFlow("if (canceledCallback != null)")
-                .addStatement("canceledCallback.call()")
-                .endControlFlow()
                 .returns(void.class);
 
-        MethodSpec.Builder onErrorBuilder = MethodSpec.methodBuilder("onError")
+        MethodSpec.Builder onErrorBuilder = MethodSpec.methodBuilder("fireError")
                 .addModifiers(PUBLIC)
                 .addParameter(Throwable.class, "e")
-                .beginControlFlow("if (errorCallback != null)")
-                .addStatement("errorCallback.call(e)")
-                .endControlFlow()
                 .returns(void.class);
-
 
         List<ParameterSpec> args = new ArrayList<>();
         List<String> argNames = new ArrayList<>();
@@ -77,9 +67,6 @@ class InnerExecutionCallbackBuilder {
         MethodSpec.Builder onSuccessBuilder = MethodSpec.methodBuilder("onSuccess")
                 .addModifiers(PUBLIC)
                 .addParameters(args)
-                .beginControlFlow("if (successCallback != null)")
-                .addStatement("successCallback.call($L)", StringUtils.join(argNames, ","))
-                .endControlFlow()
                 .returns(void.class);
 
         if (ctx.rxEnabled) {
@@ -92,12 +79,35 @@ class InnerExecutionCallbackBuilder {
             }
 
             onSuccessBuilder.addStatement("$L.onNext($L)", ctx.rxSubscriberFieldName, ctx.resultFieldName);
+            onSuccessBuilder.addStatement("$L.onCompleted()", ctx.rxSubscriberFieldName);
 
             onSuccessBuilder.endControlFlow();
 
             onErrorBuilder
                     .beginControlFlow("if ($L != null)", ctx.rxSubscriberFieldName)
                     .addStatement("$L.onError($L)", ctx.rxSubscriberFieldName, "e")
+                    .endControlFlow();
+        } else {
+            if (taskControllerType != null) {
+                onProgressBuilder
+                        .beginControlFlow("if (progressCallback != null)")
+                        .addStatement("progressCallback.call($L)", onProgressParameterName)
+                        .endControlFlow();
+            }
+
+            onCanceledBuilder
+                    .beginControlFlow("if (canceledCallback != null)")
+                    .addStatement("canceledCallback.call()")
+                    .endControlFlow();
+
+            onErrorBuilder
+                    .beginControlFlow("if (errorCallback != null)")
+                    .addStatement("errorCallback.call(e)")
+                    .endControlFlow();
+
+            onSuccessBuilder
+                    .beginControlFlow("if (successCallback != null)")
+                    .addStatement("successCallback.call($L)", StringUtils.join(argNames, ","))
                     .endControlFlow();
         }
 

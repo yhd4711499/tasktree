@@ -2,7 +2,7 @@ package ornithopter.tasktree;
 
 import org.jetbrains.annotations.Nullable;
 
-import ornithopter.tasktree.functions.Func1;
+import ornithopter.tasktree.functions.Func0;
 
 /**
  * Control the workflow of a Task.
@@ -11,18 +11,19 @@ import ornithopter.tasktree.functions.Func1;
  *
  * @author Ornithopter
  */
-public class TaskController<T> extends TaskBean<T> {
+public class TaskController<T> extends TaskBean {
 
-    private Func1<Task<T>, Boolean> cancelPendingFunc;
+    private Func0<Boolean> cancelPendingFunc;
     private boolean cancelPendingFlag;
 
     /**
      * @param task          the task you want to control
      * @param cancelPending used as a delegate for rx task to check whether subscriber is unSubscribed or not.
-     *                      passing null if this task is not a rx task.
+     *                      pass null if this task is not a rx task.
      * @throws IllegalStateException if task has a taskController already.
      */
-    public TaskController(Task<T> task, @Nullable Func1<Task<T>, Boolean> cancelPending) throws IllegalStateException {
+    @SuppressWarnings("unchecked")
+    public <V extends Task> TaskController(V task, @Nullable Func0<Boolean> cancelPending) throws IllegalStateException {
         super(task);
         if (task.taskController != null) {
             throw new IllegalStateException("You can't replace the exist taskController in a task.");
@@ -31,15 +32,11 @@ public class TaskController<T> extends TaskBean<T> {
         this.cancelPendingFunc = cancelPending;
     }
 
+    @SuppressWarnings("unchecked")
     public void progress(T progress) {
-        Task<T> task = getTask();
-        if (task != null && task.progressCallback != null) {
-            try {
-                task.progressCallback.call(progress);
-            } catch (Throwable throwable) {
-                // todo: handle progress error
-                throwable.printStackTrace();
-            }
+        Task task = getTask();
+        if (task != null) {
+            task.callback.fireProgress(progress);
         }
     }
 
@@ -50,15 +47,18 @@ public class TaskController<T> extends TaskBean<T> {
         if (cancelPendingFunc == null) {
             return cancelPendingFlag;
         }
-        return cancelPendingFunc.call(getTask());
+        return cancelPendingFunc.call();
     }
 
     public void error(Throwable e) {
-
+        Task task = getTask();
+        if (task != null) {
+            task.callback.fireError(e);
+        }
     }
 
     public void success() {
-        Task<T> task = getTask();
+        Task task = getTask();
         if (task != null) {
             task.succeedFromCallback();
         }
@@ -76,10 +76,10 @@ public class TaskController<T> extends TaskBean<T> {
      * @return The task. Invoke {@link #error} and return null if task not exist.
      */
     @Override
-    protected Task<T> getTask() {
-        Task<T> task = super.getTask();
+    protected Task getTask() {
+        Task task = super.getTask();
         if (task == null) {
-            // // TODO: 2015/11/29 specify an Exception when task not exists.
+            // TODO: 2015/11/29 specify an Exception if task not exists.
             error(null);
         }
         return task;

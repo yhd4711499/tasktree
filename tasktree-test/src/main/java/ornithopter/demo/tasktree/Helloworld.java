@@ -8,7 +8,7 @@ import ornithopter.tasktree.annotations.Inject;
 import ornithopter.tasktree.annotations.Input;
 import ornithopter.tasktree.annotations.Output;
 import ornithopter.tasktree.annotations.Task;
-import ornithopter.tasktree.functions.Func1;
+import ornithopter.tasktree.functions.Func0;
 
 /**
  * @author Ornithopter on 2015/11/15.
@@ -40,7 +40,7 @@ class HelloTaskController extends TaskController<String> {
      *                      passing null if this task is not a rx task.
      * @throws IllegalStateException if task has a taskController already.
      */
-    public HelloTaskController(ornithopter.tasktree.Task<String> task, @Nullable Func1<ornithopter.tasktree.Task<String>, Boolean> cancelPending) throws IllegalStateException {
+    public HelloTaskController(ornithopter.tasktree.Task task, @Nullable Func0<Boolean> cancelPending) throws IllegalStateException {
         super(task, cancelPending);
     }
 }
