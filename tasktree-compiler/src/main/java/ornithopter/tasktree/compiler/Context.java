@@ -2,7 +2,7 @@ package ornithopter.tasktree.compiler;
 
 import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeName;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -18,6 +18,7 @@ import javax.lang.model.util.Types;
 
 import ornithopter.tasktree.TaskController;
 import ornithopter.tasktree.annotations.Inject;
+import ornithopter.tasktree.annotations.Task;
 
 /**
  * @author Ornithopter on 2015/11/22.
@@ -26,9 +27,9 @@ public class Context {
 
      /* =============== information of annotated task =============== */
     /**
-     * package for class annotated with {@link ornithopter.tasktree.annotations.Task}
+     * package for class annotated with {@link Task}
      */
-    public TypeMirror packageElement;
+    public Element packageElement;
     /**
      * generated class name of class annotated with {@link ornithopter.tasktree.annotations.Task}
      */
@@ -36,7 +37,7 @@ public class Context {
     /**
      * type name of super class of generated class
      */
-    public ParameterizedTypeName wrappedTaskSuperClassTypeName;
+    public TypeName wrappedTaskSuperClassTypeName;
     /**
      * rx support
      */
