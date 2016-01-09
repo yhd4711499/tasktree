@@ -25,14 +25,14 @@ public abstract class Task {
      */
     public abstract void execute();
 
-    public Task prepend(Task task) {
+    public <T extends Task> T prepend(T task) {
         prependedTask = task;
-        return this;
+        return task;
     }
 
-    public Task append(Task task) {
+    public <T extends Task> T append(T task) {
         appendedTask = task;
-        return this;
+        return task;
     }
 
     public void cancel() {
@@ -43,7 +43,7 @@ public abstract class Task {
 
     protected abstract <T extends ExecutionCallback> void callSuccess(T executionCallback);
 
-    protected abstract void executeInternal();
+    protected abstract void executeInternal() throws Throwable;
 
     protected <T extends ExecutionCallback> void execute(T callback) {
         this.callback = callback;

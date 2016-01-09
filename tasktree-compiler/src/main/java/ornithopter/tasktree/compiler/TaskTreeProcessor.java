@@ -253,6 +253,8 @@ public class TaskTreeProcessor extends AbstractProcessor {
         }
 
         MethodSpec.Builder executeInternalBuilder = MethodSpec.methodBuilder("executeInternal")
+                .addAnnotation(Override.class)
+                .addException(Throwable.class)
                 .addModifiers(PROTECTED)
                 .returns(void.class);
 
@@ -305,21 +307,28 @@ public class TaskTreeProcessor extends AbstractProcessor {
     private void processOnSuccessMethod(TypeSpec.Builder typeSpecBuilder) {
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("onSuccess");
         TypeName[] outputTypes = new TypeName[context.outputFields.size()];
+        TypeName callbackTypeName;
         int typeCount = outputTypes.length;
         for (int i = 0; i < typeCount; i++) {
             outputTypes[i] = TypeName.get(context.outputFields.get(i).asType());
         }
-        ParameterizedTypeName parameterizedTypeName = ParameterizedTypeName.get(
-                context.getFunctionClass("Action" + typeCount),
-                outputTypes);
-        methodBuilder.addParameter(parameterizedTypeName, "callback")
+        if (typeCount == 0) {
+            callbackTypeName = context.getFunctionClass("Action0");
+        } else {
+            callbackTypeName = ParameterizedTypeName.get(
+                    context.getFunctionClass("Action" + typeCount),
+                    outputTypes);
+
+        }
+
+        methodBuilder.addParameter(callbackTypeName, "callback")
                 .addModifiers(PUBLIC)
                 .addStatement("successCallback = callback")
                 .addStatement("return this")
                 .returns(context.wrappedTaskClassName);
         typeSpecBuilder.addMethod(methodBuilder.build());
 
-        typeSpecBuilder.addField(parameterizedTypeName, "successCallback");
+        typeSpecBuilder.addField(callbackTypeName, "successCallback");
     }
 
     private void processOnProgressMethod(TypeSpec.Builder typeSpecBuilder) {
