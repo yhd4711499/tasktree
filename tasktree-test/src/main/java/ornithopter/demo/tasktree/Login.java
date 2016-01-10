@@ -11,7 +11,7 @@ import ornithopter.tasktree.annotations.Task;
  * @author Ornithopter on 2016/1/9.
  */
 @Task(rx = false)
-public class Login {
+class Login {
     @Input String username;
     @Input String password;
 
@@ -21,16 +21,16 @@ public class Login {
 
     @Execution void execute() throws InterruptedException {
         taskController.progress("connecting...");
-        Thread.sleep(2000);
-        taskController.progress("authenticating...");
-        Thread.sleep(2000);
+        Thread.sleep(500);
+        taskController.progress("authenticating: " + username + "...");
+        Thread.sleep(500);
         userInfo = new UserInfo();
         userInfo.username = username;
         userInfo.token = "********";
         taskController.success();
     }
 
-    public static class UserInfo {
+    static class UserInfo {
         String username;
         String token;
     }

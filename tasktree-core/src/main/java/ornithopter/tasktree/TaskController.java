@@ -5,15 +5,26 @@ import org.jetbrains.annotations.Nullable;
 import ornithopter.tasktree.functions.Func0;
 
 /**
+ * TaskController is used as a notifier and status checking tool.
+ * No logic for task execution here.
+ */
+
+/**
  * Control the workflow of a Task.
  * <p>
  * {@link #success} must be called to complete the execution.
- *
+ * <p>
  * @author Ornithopter
  */
-public class TaskController<T> extends TaskBean {
+public class TaskController<T> extends ornithopter.tasktree.di.TaskBean {
 
+    /**
+     * whether the task is about to cancel.
+     */
     private Func0<Boolean> cancelPendingFunc;
+    /**
+     * whether the task is about to cancel.
+     */
     private boolean cancelPendingFlag;
 
     /**
@@ -22,8 +33,7 @@ public class TaskController<T> extends TaskBean {
      *                      pass null if this task is not a rx task.
      * @throws IllegalStateException if task has a taskController already.
      */
-    @SuppressWarnings("unchecked")
-    public <V extends Task> TaskController(V task, @Nullable Func0<Boolean> cancelPending) throws IllegalStateException {
+    public TaskController(Task task, @Nullable Func0<Boolean> cancelPending) throws IllegalStateException {
         super(task);
         if (task.taskController != null) {
             throw new IllegalStateException("You can't replace the exist taskController in a task.");
@@ -32,16 +42,8 @@ public class TaskController<T> extends TaskBean {
         this.cancelPendingFunc = cancelPending;
     }
 
-    @SuppressWarnings("unchecked")
-    public void progress(T progress) {
-        Task task = getTask();
-        if (task != null) {
-            task.callback.fireProgress(progress);
-        }
-    }
-
     /**
-     * @return the task is about to cancel.
+     * @return whether the task is about to cancel.
      */
     public boolean isCancelPending() {
         if (cancelPendingFunc == null) {
@@ -50,26 +52,54 @@ public class TaskController<T> extends TaskBean {
         return cancelPendingFunc.call();
     }
 
-    public void error(Throwable e) {
+    /**
+     * Indicate that some progress have been made in this task.
+     * @param progress progress
+     */
+    public void progress(T progress) {
         Task task = getTask();
         if (task != null) {
-            task.callback.fireError(e);
+            task.fireProgress(progress);
         }
     }
 
+    /**
+     * Indicate an error has occurred and task is about to finish.
+     * <p>
+     * you should not call any method after.
+     * @param e error
+     */
+    public void error(Throwable e) {
+        Task task = getTask();
+        if (task != null) {
+            task.fireError(e);
+        }
+    }
+
+    /**
+     * Indicate the task succeeded
+     * <p>
+     * you should not call any method after.
+     */
     public void success() {
         Task task = getTask();
         if (task != null) {
-            task.succeedFromCallback();
+            task.fireSuccess();
         }
     }
 
     /**
      * request the task to cancel.
+     * <p>
+     * you should not call any method after.
      */
     void cancel() {
         cancelPendingFunc = null;
         cancelPendingFlag = true;
+        Task task = getTask();
+        if (task != null) {
+            task.fireCancel();
+        }
     }
 
     /**

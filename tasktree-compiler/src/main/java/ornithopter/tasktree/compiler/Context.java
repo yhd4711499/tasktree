@@ -35,6 +35,10 @@ public class Context {
      */
     public ClassName wrappedTaskClassName;
     /**
+     * generated class name for holding naming of input and output fields.
+     */
+    public ClassName taskKeyDefineClassName;
+    /**
      * type name of super class of generated class
      */
     public TypeName wrappedTaskSuperClassTypeName;

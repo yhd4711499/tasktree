@@ -20,9 +20,9 @@ public class ImportAssets {
     @Execution
     void execute() throws InterruptedException {
         taskController.progress("connecting...");
-        Thread.sleep(2000);
-        taskController.progress("importing...");
-        Thread.sleep(2000);
+        Thread.sleep(500);
+        taskController.progress("importing: " + userInfo.username + "...");
+        Thread.sleep(500);
         taskController.success();
     }
 }

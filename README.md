@@ -87,7 +87,7 @@ HelloworldRxTask.build(name, 6).asObservable().subscribe(new Subscriber<Hellowor
 
 `tasktree-compiler`: code generator.
 
-`tasktree-core`: `TaskTree` implemtations.
+`tasktree-core`: `TaskTree` implementations.
 
 `tasktree-rx`: nothing but a place holder.
 

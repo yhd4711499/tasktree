@@ -13,9 +13,12 @@ import com.squareup.javapoet.TypeSpec;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -33,6 +36,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 
 import ornithopter.tasktree.ExecutionCallback;
+import ornithopter.tasktree.TaskConnection;
 import ornithopter.tasktree.TaskController;
 import ornithopter.tasktree.annotations.Execution;
 import ornithopter.tasktree.annotations.Inject;
@@ -43,6 +47,7 @@ import ornithopter.tasktree.compiler.utils.StringUtils;
 import ornithopter.tasktree.functions.Func0;
 
 import static javax.lang.model.element.ElementKind.CLASS;
+import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PROTECTED;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -104,16 +109,24 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 context.resultFieldName = "result";
                 context.resultClassName = context.wrappedTaskClassName.nestedClass("Result");
 
+                context.taskKeyDefineClassName = context.wrappedTaskClassName.nestedClass("Keys");
+
                 processTaskField(typeSpecBuilder);
 
                 processSuperClass(typeSpecBuilder);
 
                 processCallSuccessMethod(typeSpecBuilder);
+                processReadResultMapMethod(typeSpecBuilder);
+                processGetResultMapMethod(typeSpecBuilder);
 
                 processExecuteMethod(typeSpecBuilder);
 //                processFireProgressMethod(typeSpecBuilder);
 
-                processBuildMethod(typeSpecBuilder);
+                processBuildManuallyMethod(typeSpecBuilder);
+                processBuildFromMapMethod(typeSpecBuilder);
+                processBuildConnectionMethod(typeSpecBuilder);
+
+                processKeyDefine(typeSpecBuilder);
 
                 if (context.rxEnabled) {
                     processAsObservableMethod(typeSpecBuilder);
@@ -138,7 +151,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
         return true;
     }
 
-    private void processSuperClass(TypeSpec.Builder typeSpecBuilder) throws Exception {
+    private void processSuperClass(TypeSpec.Builder typeSpecBuilder) {
         typeSpecBuilder.addType(new InnerExecutionCallbackBuilder().build(context));
 //        List<TypeName> typeNames = new ArrayList<>();
 //        typeNames.add(context.wrappedTaskClassName.nestedClass(context.innerCallbackClassName.simpleName()));
@@ -179,7 +192,7 @@ public class TaskTreeProcessor extends AbstractProcessor {
         typeSpecBuilder.addField(fieldSpec);
     }
 
-    private void processBuildMethod(TypeSpec.Builder typeSpecBuilder) {
+    private void processBuildManuallyMethod(TypeSpec.Builder typeSpecBuilder) {
         List<ParameterSpec> args = new ArrayList<>();
 
         for (Element inputField : context.inputFields) {
@@ -204,6 +217,30 @@ public class TaskTreeProcessor extends AbstractProcessor {
         }
         methodBuilder.addStatement("return $L", taskInstanceName);
 
+        typeSpecBuilder.addMethod(methodBuilder.build());
+    }
+
+    private void processBuildFromMapMethod(TypeSpec.Builder typeSpecBuilder) {
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("build")
+                .addModifiers(PUBLIC, STATIC)
+                .addParameter(ParameterizedTypeName.get(Map.class, String.class, Object.class), "map")
+                .returns(context.wrappedTaskClassName);
+
+        String taskInstanceName = "task";
+        methodBuilder.addStatement("$T $L = new $T()",
+                context.wrappedTaskClassName, taskInstanceName, context.wrappedTaskClassName);
+        methodBuilder.addStatement("$L.readInputFromMap($L)", taskInstanceName, "map");
+        methodBuilder.addStatement("return $L", taskInstanceName);
+        typeSpecBuilder.addMethod(methodBuilder.build());
+    }
+
+    private void processBuildConnectionMethod(TypeSpec.Builder typeSpecBuilder) {
+        ParameterizedTypeName returnType = ParameterizedTypeName.get(ClassName.get(TaskConnection.class), context.wrappedTaskClassName);
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("connect")
+                .addModifiers(PUBLIC, STATIC)
+                .addParameter(ParameterizedTypeName.get(Map.class, String.class, String.class), "mapping")
+                .returns(returnType);
+        methodBuilder.addStatement("return new $T(new $T(), $L)", returnType, context.wrappedTaskClassName, "mapping");
         typeSpecBuilder.addMethod(methodBuilder.build());
     }
 
@@ -393,16 +430,16 @@ public class TaskTreeProcessor extends AbstractProcessor {
         typeSpecBuilder.addField(context.getFunctionClass("Action0"), "canceledCallback");
     }
 
-    private void processAsObservableMethod(TypeSpec.Builder builder) {
+    private void processAsObservableMethod(TypeSpec.Builder typeSpecBuilder) {
         ClassName observableClassName = ClassName.get("rx", "Observable");
         ClassName onSubscribeClassName = ClassName.get("rx", "Observable.OnSubscribe");
         ClassName subscriberClassName = ClassName.get("rx", "Subscriber");
 
-        builder.addField(subscriberClassName, context.rxSubscriberFieldName);
+        typeSpecBuilder.addField(subscriberClassName, context.rxSubscriberFieldName);
 
         ParameterizedTypeName returnTypeName = ParameterizedTypeName.get(observableClassName, context.resultClassName);
 
-        builder.addMethod(MethodSpec.methodBuilder("asObservable")
+        typeSpecBuilder.addMethod(MethodSpec.methodBuilder("asObservable")
                 .addModifiers(Modifier.PUBLIC)
                 .addCode("return $L.create(new $T<$T>() {\n" +
                                 "  @Override\n" +
@@ -417,6 +454,77 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 .returns(returnTypeName)
                 .build()
         );
+    }
+
+    private void processReadResultMapMethod(TypeSpec.Builder typeSpecBuilder) {
+        String paramName = "map";
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("readInputFromMap")
+                .addAnnotation(Override.class)
+                .addModifiers(PROTECTED)
+                .addParameter(ParameterizedTypeName.get(Map.class, String.class, Object.class), paramName)
+                .returns(TypeName.VOID)
+                .addStatement("$T obj", Object.class);
+        context.inputFields.stream()
+                .forEach(element ->
+                        methodBuilder
+                                .addStatement("obj = $L.get($S)", paramName, element.getSimpleName())
+                                .beginControlFlow("if (obj != null)")
+                                    .addStatement(
+                                        "$L.$L = ($T)obj",
+                                        context.taskImplFieldName,
+                                        element.getSimpleName(),
+                                        element.asType())
+                                .endControlFlow());
+        typeSpecBuilder.addMethod(methodBuilder.build());
+    }
+
+    private void processGetResultMapMethod(TypeSpec.Builder typeSpecBuilder) {
+        String paramName = "map";
+        ParameterizedTypeName mapType = ParameterizedTypeName.get(Map.class, String.class, Object.class);
+        ParameterizedTypeName hashMapType = ParameterizedTypeName.get(HashMap.class, String.class, Object.class);
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("getResultMap")
+                .addAnnotation(Override.class)
+                .addModifiers(PROTECTED)
+                .returns(mapType);
+        methodBuilder.addStatement("$T $L = new $T()", hashMapType, paramName, hashMapType);
+        context.outputFields.stream()
+                .forEach(element ->
+                        methodBuilder.addStatement(
+                                "$L.put($S, $L.$L)",
+                                paramName,
+                                element.getSimpleName(),
+                                context.taskImplFieldName,
+                                element.getSimpleName()));
+        methodBuilder.addStatement("return $L", paramName);
+        typeSpecBuilder.addMethod(methodBuilder.build());
+    }
+
+//    private void processCheckInputsMethod(TypeSpec.Builder typeSpecBuilder) {
+//        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("checkInputs")
+//                .addAnnotation(Override.class)
+//                .addModifiers(PROTECTED)
+//                .returns(TypeName.BOOLEAN);
+//
+//    }
+
+    private void processKeyDefine(TypeSpec.Builder typeSpecBuilder){
+        List<FieldSpec> fieldSpecs = new ArrayList<>(context.inputFields.size() + context.outputFields.size());
+
+        Consumer<Element> consumer = element ->
+                fieldSpecs.add(
+                        FieldSpec.builder(String.class, element.getSimpleName().toString(), PUBLIC, STATIC, FINAL)
+                                .initializer("$S", element.getSimpleName())
+                                .build()
+                );
+
+        context.inputFields.forEach(consumer);
+        context.outputFields.forEach(consumer);
+
+        TypeSpec.Builder keysBuilder = TypeSpec.classBuilder(context.taskKeyDefineClassName.simpleName())
+                .addModifiers(PUBLIC, FINAL)
+                .addFields(fieldSpecs);
+
+        typeSpecBuilder.addType(keysBuilder.build());
     }
 
     private void processResultTypeAndField(TypeSpec.Builder builder) {

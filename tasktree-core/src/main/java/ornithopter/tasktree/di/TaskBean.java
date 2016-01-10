@@ -1,16 +1,18 @@
-package ornithopter.tasktree;
+package ornithopter.tasktree.di;
 
 import java.lang.ref.WeakReference;
 
+import ornithopter.tasktree.Task;
+
 /**
- * TaskBean
+ * TaskBean. For dependency injection.
  *
  * @author Ornithopter on 2015/12/6.
  */
 public class TaskBean {
-    protected final WeakReference<? extends Task> taskWeakReference;
+    private final WeakReference<? extends Task> taskWeakReference;
 
-    public <T extends Task> TaskBean(T task) {
+    protected TaskBean(Task task) {
         this.taskWeakReference = new WeakReference<>(task);
     }
 
