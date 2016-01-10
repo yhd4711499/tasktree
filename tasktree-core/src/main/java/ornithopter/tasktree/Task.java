@@ -45,10 +45,13 @@ public abstract class Task {
      * ================ */
 
     /**
-     * 执行
+     * execute
      */
     public abstract void execute();
 
+    /**
+     * @param interrupt interrupt the working thread
+     */
     public void cancel(boolean interrupt) {
         if (interrupt && executionThread != null) {
             executionThread.interrupt();
@@ -58,11 +61,21 @@ public abstract class Task {
         }
     }
 
+    /**
+     * prepend a Task, which will be executed <b>BEFORE</b> the execution of this task
+     * @param <T> type of the Task
+     * @return the prepending task in {@code connection}
+     */
     public <T extends Task> T prepend(TaskConnection<T> connection) {
         prependedConnections.add(connection);
         return connection.target.get();
     }
 
+    /**
+     * append a Task, which will be executed <b>AFTER</b> the execution of this task
+     * @param <T> type of the Task
+     * @return the appending task in {@code connection}
+     */
     public <T extends Task> T append(TaskConnection<T> connection) {
         appendedConnections.add(connection);
         return connection.target.get();

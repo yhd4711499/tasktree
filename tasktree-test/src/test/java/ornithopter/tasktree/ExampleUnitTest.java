@@ -4,7 +4,7 @@ package ornithopter.tasktree;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
@@ -95,13 +95,22 @@ public class ExampleUnitTest {
     @Test
     public void testAppend() throws InterruptedException {
         final CountDownLatch signal = new CountDownLatch(1);
+
         LoginTask loginTask = LoginTask.build("google", "********").onProgress(System.out::println);
-        loginTask.append(ImportAssetsTask.connect(new HashMap<String, String>(){
-            {
-                put(ImportAssetsTask.Keys.userInfo, LoginTask.Keys.userInfo);
-            }
-        })).onProgress(System.out::println).onError(throwable -> signal.countDown()).onSuccess(signal::countDown);
+
+        // map output [userInfo] to input [userInfo]
+        Map<String, String> mapping = MapUtil.from(ImportAssetsTask.Keys.userInfo, LoginTask.Keys.userInfo);
+
+        // append method will return the appending task,
+        // which is ImportAssetsTask for this case.
+        ImportAssetsTask importAssetsTask = loginTask.append(ImportAssetsTask.connect(mapping));
+        importAssetsTask
+                .onProgress(System.out::println)
+                .onError(throwable -> signal.countDown())
+                .onSuccess(signal::countDown);
+
         Executors.newCachedThreadPool().submit((Runnable) loginTask::execute);
+
         signal.await();
     }
 
@@ -110,13 +119,29 @@ public class ExampleUnitTest {
         final CountDownLatch signal = new CountDownLatch(1);
         TransferAssetsTask transferAssetsTask = new TransferAssetsTask();
 
-        transferAssetsTask.prepend(
-                new TaskConnection<>(LoginTask.build("google", "********").onProgress(System.out::println),
-                MapUtil.from(TransferAssetsTask.Keys.userInfoFrom, LoginTask.Keys.userInfo)));
+        /*
+         * Prepend two parallel tasks.
+         *
+         * When transferAssetsTask executed, these prepended tasks will be executed at first.
+         *
+         * Input of transferAssetsTask will be assigned thereafter according to mappings in TaskConnection.
+         */
 
         transferAssetsTask.prepend(
-                new TaskConnection<>(LoginTask.build("microsoft", "********").onProgress(System.out::println),
-                MapUtil.from(TransferAssetsTask.Keys.userInfoTo, LoginTask.Keys.userInfo)));
+                new TaskConnection<>(
+                        LoginTask.build("google", "********").onProgress(System.out::println),
+                        // map output [userInfo] to input [userInfoFrom]
+                        TransferAssetsTask.Keys.userInfoFrom, LoginTask.Keys.userInfo   // mapping
+                )
+        );
+
+        transferAssetsTask.prepend(
+                new TaskConnection<>(
+                        LoginTask.build("microsoft", "********").onProgress(System.out::println),
+                        // map output [userInfo] to input [userInfoTo]
+                        TransferAssetsTask.Keys.userInfoTo, LoginTask.Keys.userInfo
+                )
+        );
 
         transferAssetsTask
                 .onProgress(System.out::println)
@@ -134,14 +159,23 @@ public class ExampleUnitTest {
 
         TransferAssetsTask transferAssetsTask = new TransferAssetsTask();
 
+        // prepend method will return the prepending task,
+        // which is LoginTask in this case.
         LoginTask google = transferAssetsTask.prepend(
-                new TaskConnection<>(LoginTask.build("google", "********")
-                        .onCancel(()-> System.out.println("login google canceled."))
-                        .onProgress(System.out::println),
-                MapUtil.from(TransferAssetsTask.Keys.userInfoFrom, LoginTask.Keys.userInfo)));
+                new TaskConnection<>(
+                        LoginTask.build("google", "********")
+                            .onCancel(()-> System.out.println("login google canceled."))
+                            .onProgress(System.out::println),
+                        TransferAssetsTask.Keys.userInfoFrom, LoginTask.Keys.userInfo
+                )
+        );
 
-        transferAssetsTask.prepend(new TaskConnection<>(LoginTask.build("microsoft", "********").onProgress(System.out::println),
-                MapUtil.from(TransferAssetsTask.Keys.userInfoTo, LoginTask.Keys.userInfo)));
+        transferAssetsTask.prepend(
+                new TaskConnection<>(
+                        LoginTask.build("microsoft", "********").onProgress(System.out::println),
+                        TransferAssetsTask.Keys.userInfoTo, LoginTask.Keys.userInfo
+                )
+        );
 
         transferAssetsTask
                 .onProgress(System.out::println)
