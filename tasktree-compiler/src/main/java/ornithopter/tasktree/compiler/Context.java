@@ -1,5 +1,9 @@
 package ornithopter.tasktree.compiler;
 
+import com.annimon.stream.Optional;
+import com.annimon.stream.Stream;
+import com.annimon.stream.function.Consumer;
+import com.annimon.stream.function.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
@@ -7,7 +11,6 @@ import com.squareup.javapoet.TypeName;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.Optional;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
@@ -102,9 +105,19 @@ public class Context {
      * <p>empty list if no suitable elements.
      * <p>Note: this list is immutable!
      */
-    public List<Element> getInjectField(Class<?> clazz) {
-        ImmutableList.Builder<Element> builder = ImmutableList.builder();
-        injectFields.stream().filter(elm -> isSubType(clazz, elm)).forEach(builder::add);
+    public List<Element> getInjectField(final Class<?> clazz) {
+        final ImmutableList.Builder<Element> builder = ImmutableList.builder();
+        Stream.of(injectFields).filter(new Predicate<Element>() {
+            @Override
+            public boolean test(Element elm) {
+                return Context.this.isSubType(clazz, elm);
+            }
+        }).forEach(new Consumer<Element>() {
+            @Override
+            public void accept(Element element) {
+                builder.add(element);
+            }
+        });
         return builder.build();
     }
 
@@ -122,7 +135,7 @@ public class Context {
      * <p>null if not found.
      */
     public Element getInjectFieldOrDefault(Class<?> clazz) {
-        Optional<Element> optional = getInjectField(clazz).stream().findFirst();
+        Optional<Element> optional = Stream.of(getInjectField(clazz)).findFirst();
         return optional.isPresent() ? optional.get() : null;
     }
 
@@ -130,13 +143,18 @@ public class Context {
      * find the super type of {@code typeMirror}
      * @return super type with {@code qualifiedClassName}. null if not found.
      */
-    public TypeMirror findTargetSuperType(TypeMirror typeMirror, String qualifiedClassName) {
-        Types typeUtils = getTypeUtils();
+    public TypeMirror findTargetSuperType(TypeMirror typeMirror, final String qualifiedClassName) {
+        final Types typeUtils = getTypeUtils();
         if (typeUtils.erasure(typeMirror).toString().equals(qualifiedClassName)) {
             return typeMirror;
         }
-        Optional<? extends TypeMirror> first = typeUtils.directSupertypes(typeMirror).stream()
-                .filter((t)-> typeUtils.erasure(t).toString().equals(qualifiedClassName))
+        Optional<? extends TypeMirror> first = Stream.of(typeUtils.directSupertypes(typeMirror))
+                .filter(new Predicate<TypeMirror>() {
+                    @Override
+                    public boolean test(TypeMirror t) {
+                        return typeUtils.erasure(t).toString().equals(qualifiedClassName);
+                    }
+                })
                 .findFirst();
         if (first.isPresent()) {
             return first.get();

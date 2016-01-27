@@ -8,7 +8,7 @@ buildscript {
 //        maven{ url 'http://maven.oschina.net/content/groups/public/'}
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.0.0-alpha3'
+        classpath 'com.android.tools.build:gradle:2.0.0-alpha7'
         classpath 'me.tatarka:gradle-retrolambda:3.2.3'
         classpath 'com.neenbedankt.gradle.plugins:android-apt:1.8'
         // NOTE: Do not place your application dependencies here; they belong
@@ -28,6 +28,7 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
 ext.deps = [
         // Android
         android: 'com.google.android:android:2.1.2',
@@ -42,6 +43,9 @@ ext.deps = [
 
         // RX
         rxjava: 'io.reactivex:rxjava:1.0.16',
+
+        // Stream
+        stream: 'com.annimon:stream:1.0.5',
 
         // jet brain
         jbAnnotations: 'org.jetbrains:annotations:13.0',

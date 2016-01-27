@@ -3,6 +3,7 @@ apply plugin: 'java'
 dependencies {
     compile project(':tasktree-annotations')
     compile project(':tasktree-core')
+    compile deps.stream
     compile deps.autoservice
     compile deps.autocommon
     compile deps.javapoet

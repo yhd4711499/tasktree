@@ -26,8 +26,8 @@ android {
 }
 
 dependencies {
-    compile project(':tasktree-core')
     apt project(':tasktree-compiler')
+    compile project(':tasktree-core')
     compile fileTree(include: ['*.jar'], dir: 'libs')
     compile deps.rxjava
     compile deps.appcompat

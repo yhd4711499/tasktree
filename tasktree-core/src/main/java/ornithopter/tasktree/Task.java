@@ -68,7 +68,7 @@ public abstract class Task {
      */
     public <T extends Task> T prepend(TaskConnection<T> connection) {
         prependedConnections.add(connection);
-        return connection.target.get();
+        return connection.getTarget();
     }
 
     /**
@@ -78,7 +78,7 @@ public abstract class Task {
      */
     public <T extends Task> T append(TaskConnection<T> connection) {
         appendedConnections.add(connection);
-        return connection.target.get();
+        return connection.getTarget();
     }
 
     /* ================
@@ -137,17 +137,35 @@ public abstract class Task {
      * ================ */
 
     private void startPrependedTask() {
-        CountDownLatch latch = new CountDownLatch(prependedConnections.size());
-        for (TaskConnection<? extends Task> prependedConnection : prependedConnections) {
-            Task task = prependedConnection.target.get();
-            task.onSuccess = (stringObjectMap -> {
-                latch.countDown();
-                readInputFromMap(prependedConnection.connector.mapResultForConsumer(stringObjectMap));
+        final CountDownLatch latch = new CountDownLatch(prependedConnections.size());
+        for (final TaskConnection<? extends Task> prependedConnection : prependedConnections) {
+            final Task task = prependedConnection.getTarget();
+            task.onSuccess = (new Action1<Map<String, Object>>() {
+                @Override
+                public void call(Map<String, Object> stringObjectMap) {
+                    latch.countDown();
+                    Task.this.readInputFromMap(prependedConnection.connector.mapResultForConsumer(stringObjectMap));
+                }
             });
-            task.onCancel = latch::countDown;
-            task.onError = (throwable -> latch.countDown());
+            task.onCancel = new Action0() {
+                @Override
+                public void call() {
+                    latch.countDown();
+                }
+            };
+            task.onError = (new Action1<Throwable>() {
+                @Override
+                public void call(Throwable throwable) {
+                    latch.countDown();
+                }
+            });
 
-            Executors.newCachedThreadPool().submit((Runnable) task::execute);
+            Executors.newCachedThreadPool().submit((Runnable) new Runnable() {
+                @Override
+                public void run() {
+                    task.execute();
+                }
+            });
         }
         try {
             latch.await();
@@ -160,11 +178,14 @@ public abstract class Task {
         }
     }
 
-    private void startAppendedTask(Map<String, Object> resultMap) {
-        for (TaskConnection<? extends Task> appendedConnection : appendedConnections) {
-            Executors.newCachedThreadPool().submit(()-> {
-                appendedConnection.target.get().readInputFromMap(appendedConnection.connector.mapResultForConsumer(resultMap));
-                appendedConnection.target.get().execute();
+    private void startAppendedTask(final Map<String, Object> resultMap) {
+        for (final TaskConnection<? extends Task> appendedConnection : appendedConnections) {
+            Executors.newCachedThreadPool().submit(new Runnable() {
+                @Override
+                public void run() {
+                    appendedConnection.getTarget().readInputFromMap(appendedConnection.connector.mapResultForConsumer(resultMap));
+                    appendedConnection.getTarget().execute();
+                }
             });
         }
     }

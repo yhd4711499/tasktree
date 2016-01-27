@@ -1,5 +1,9 @@
 package ornithopter.tasktree.compiler;
 
+import com.annimon.stream.Collectors;
+import com.annimon.stream.Stream;
+import com.annimon.stream.function.Consumer;
+import com.annimon.stream.function.Function;
 import com.google.auto.common.SuperficialValidation;
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.ClassName;
@@ -18,8 +22,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -55,7 +57,7 @@ import static javax.lang.model.element.Modifier.STATIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
 @AutoService(Processor.class)
-@SupportedSourceVersion(SourceVersion.RELEASE_8)
+@SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class TaskTreeProcessor extends AbstractProcessor {
 
     private static final String TASK_CLASS_POSTFIX = "Task";
@@ -247,7 +249,12 @@ public class TaskTreeProcessor extends AbstractProcessor {
     private void processCallSuccessMethod(TypeSpec.Builder typeSpecBuilder) {
         List<String> args = new ArrayList<>();
         List<Element> outputFields = context.outputFields;
-        args.addAll(outputFields.stream().map(outputField -> context.taskImplFieldName + "." + outputField.getSimpleName().toString()).collect(Collectors.toList()));
+        args.addAll(Stream.of(outputFields).map(new Function<Element, String>() {
+            @Override
+            public String apply(Element outputField) {
+                return context.taskImplFieldName + "." + outputField.getSimpleName().toString();
+            }
+        }).collect(Collectors.<String>toList()));
 
         MethodSpec.Builder builder = MethodSpec.methodBuilder("callSuccess")
                 .addModifiers(PROTECTED)
@@ -457,44 +464,52 @@ public class TaskTreeProcessor extends AbstractProcessor {
     }
 
     private void processReadResultMapMethod(TypeSpec.Builder typeSpecBuilder) {
-        String paramName = "map";
-        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("readInputFromMap")
+        final String paramName = "map";
+        final MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("readInputFromMap")
                 .addAnnotation(Override.class)
                 .addModifiers(PROTECTED)
                 .addParameter(ParameterizedTypeName.get(Map.class, String.class, Object.class), paramName)
                 .returns(TypeName.VOID)
                 .addStatement("$T obj", Object.class);
-        context.inputFields.stream()
-                .forEach(element ->
+        Stream.of(context.inputFields)
+                .forEach(new Consumer<Element>() {
+                    @Override
+                    public void accept(Element element) {
                         methodBuilder
                                 .addStatement("obj = $L.get($S)", paramName, element.getSimpleName())
                                 .beginControlFlow("if (obj != null)")
-                                    .addStatement(
+                                .addStatement(
                                         "$L.$L = ($T)obj",
                                         context.taskImplFieldName,
                                         element.getSimpleName(),
                                         element.asType())
-                                .endControlFlow());
+                                .endControlFlow();
+                    }
+                });
         typeSpecBuilder.addMethod(methodBuilder.build());
     }
 
     private void processGetResultMapMethod(TypeSpec.Builder typeSpecBuilder) {
-        String paramName = "map";
+        final String paramName = "map";
         ParameterizedTypeName mapType = ParameterizedTypeName.get(Map.class, String.class, Object.class);
         ParameterizedTypeName hashMapType = ParameterizedTypeName.get(HashMap.class, String.class, Object.class);
-        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("getResultMap")
+        final MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("getResultMap")
                 .addAnnotation(Override.class)
                 .addModifiers(PROTECTED)
                 .returns(mapType);
         methodBuilder.addStatement("$T $L = new $T()", hashMapType, paramName, hashMapType);
-        context.outputFields.stream()
-                .forEach(element ->
+        Stream.of(context.outputFields)
+                .forEach(new Consumer<Element>() {
+                    @Override
+                    public void accept(Element element) {
                         methodBuilder.addStatement(
                                 "$L.put($S, $L.$L)",
                                 paramName,
                                 element.getSimpleName(),
                                 context.taskImplFieldName,
-                                element.getSimpleName()));
+                                element.getSimpleName());
+                    }
+                });
         methodBuilder.addStatement("return $L", paramName);
         typeSpecBuilder.addMethod(methodBuilder.build());
     }
@@ -508,17 +523,21 @@ public class TaskTreeProcessor extends AbstractProcessor {
 //    }
 
     private void processKeyDefine(TypeSpec.Builder typeSpecBuilder){
-        List<FieldSpec> fieldSpecs = new ArrayList<>(context.inputFields.size() + context.outputFields.size());
+        final List<FieldSpec> fieldSpecs = new ArrayList<>(context.inputFields.size() + context.outputFields.size());
 
-        Consumer<Element> consumer = element ->
+        Consumer<Element> consumer = new Consumer<Element>() {
+            @Override
+            public void accept(Element element) {
                 fieldSpecs.add(
                         FieldSpec.builder(String.class, element.getSimpleName().toString(), PUBLIC, STATIC, FINAL)
                                 .initializer("$S", element.getSimpleName())
                                 .build()
                 );
+            }
+        };
 
-        context.inputFields.forEach(consumer);
-        context.outputFields.forEach(consumer);
+        Stream.of(context.inputFields).forEach(consumer);
+        Stream.of(context.outputFields).forEach(consumer);
 
         TypeSpec.Builder keysBuilder = TypeSpec.classBuilder(context.taskKeyDefineClassName.simpleName())
                 .addModifiers(PUBLIC, FINAL)
