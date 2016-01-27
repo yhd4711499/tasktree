@@ -90,7 +90,10 @@ JDK8 is used by `retrolambda` and it requires `JAVA8_HOME` to be set in the envi
 For OSX users, please refer to this link:
 [http://stackoverflow.com/questions/135688/setting-environment-variables-in-os-x/588442#588442](http://stackoverflow.com/questions/135688/setting-environment-variables-in-os-x/588442#588442)
 
-For now all demos are placed in Unit test cases. You need to switch the Test Artifact in the Build Variants view to run the `ExampleUnitTest` contained in module `tasktree-test`.
+For now all demos are placed in Unit test cases. 
+
+You need to switch the Test Artifact in the Build Variants view to run the `ExampleUnitTest` contained in module `tasktree-test`.
+And set the JRE for unit testing to jdk8.
 
 ## Project structure
 
