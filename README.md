@@ -81,6 +81,17 @@ HelloworldRxTask.build(name, 6).asObservable().subscribe(new Subscriber<Hellowor
 });
 ```
 
+## How to build
+
+You need both jdk7 and jdk8 to build this project.
+
+JDK8 is used by `retrolambda` and it requires `JAVA8_HOME` to be set in the environment variables.
+
+For OSX users, please refer to this link:
+[http://stackoverflow.com/questions/135688/setting-environment-variables-in-os-x/588442#588442](http://stackoverflow.com/questions/135688/setting-environment-variables-in-os-x/588442#588442)
+
+For now all demos are placed in Unit test cases. You need to switch the Test Artifact in the Build Variants view to run the `ExampleUnitTest` contained in module `tasktree-test`.
+
 ## Project structure
 
 `tasktree-annotations`: only annotations contained.
