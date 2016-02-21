@@ -1,4 +1,4 @@
-package ornithopter.demo.tasktree;
+package ornithopter.demo.tasktree.tasks;
 
 import ornithopter.tasktree.TaskController;
 import ornithopter.tasktree.annotations.Execution;

@@ -1,4 +1,4 @@
-package ornithopter.demo.tasktree;
+package ornithopter.demo.tasktree.tasks;
 
 import ornithopter.tasktree.TaskController;
 import ornithopter.tasktree.annotations.Execution;
@@ -10,13 +10,13 @@ import ornithopter.tasktree.annotations.Task;
 /**
  * @author Ornithopter on 2016/1/10.
  */
-@Task(rx = false)
-class TransferAssets {
+@Task(rx = true)
+class TransferAssetsRx {
     @Input
-    Login.UserInfo userInfoFrom;
+    LoginRx.UserInfo userInfoFrom;
 
     @Input
-    Login.UserInfo userInfoTo;
+    LoginRx.UserInfo userInfoTo;
 
     @Optional
     @Input

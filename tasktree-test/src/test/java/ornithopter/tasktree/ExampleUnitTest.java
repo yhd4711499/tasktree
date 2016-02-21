@@ -8,13 +8,17 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
-import ornithopter.demo.tasktree.HelloworldRxTask;
-import ornithopter.demo.tasktree.HelloworldTask;
-import ornithopter.demo.tasktree.ImportAssetsTask;
-import ornithopter.demo.tasktree.LoginTask;
-import ornithopter.demo.tasktree.TransferAssetsTask;
+import ornithopter.demo.tasktree.tasks.HelloworldRxTask;
+import ornithopter.demo.tasktree.tasks.HelloworldTask;
+import ornithopter.demo.tasktree.tasks.ImportAssetsTask;
+import ornithopter.demo.tasktree.tasks.LoginRxTask;
+import ornithopter.demo.tasktree.tasks.LoginTask;
+import ornithopter.demo.tasktree.tasks.TransferAssetsRxTask;
+import ornithopter.demo.tasktree.tasks.TransferAssetsTask;
 import ornithopter.tasktree.utils.MapUtil;
+import rx.Observable;
 import rx.Subscriber;
+import rx.schedulers.Schedulers;
 
 
 /**
@@ -44,15 +48,15 @@ public class ExampleUnitTest {
     public void testRx() throws InterruptedException {
         final CountDownLatch signal = new CountDownLatch(1);
         final String name = "yhd";
-        HelloworldRxTask.build(name, 6).asObservable().subscribe(new Subscriber<HelloworldRxTask.Result>() {
+        HelloworldRxTask.build(name, 6).asObservable().subscribeOn(Schedulers.computation()).observeOn(Schedulers.newThread()).subscribe(new Subscriber<HelloworldRxTask.Result>() {
             @Override
             public void onStart() {
-                System.out.println("HelloworldRxTask started.");
+                System.out.println(String.format("[%s]: started.", Thread.currentThread()));
             }
 
             @Override
             public void onCompleted() {
-
+                System.out.println(String.format("[%s]: completed.", Thread.currentThread()));
             }
 
             @Override
@@ -62,8 +66,13 @@ public class ExampleUnitTest {
 
             @Override
             public void onNext(HelloworldRxTask.Result result) {
-                Assert.assertEquals(result.greetings, name);
-                signal.countDown();
+                System.out.println(String.format("[%s]: next.", Thread.currentThread()));
+                if (result.completed) {
+                    Assert.assertEquals(result.greetings, name);
+                    signal.countDown();
+                } else {
+                    System.out.println(result.progress);
+                }
             }
         });
         signal.await();
@@ -150,6 +159,48 @@ public class ExampleUnitTest {
 
         Executors.newCachedThreadPool().submit((Runnable) transferAssetsTask::execute);
 
+        signal.await();
+    }
+
+    @Test
+    public void testPrependRx() throws InterruptedException {
+        final CountDownLatch signal = new CountDownLatch(1);
+
+        /*
+         * Prepend two parallel tasks.
+         *
+         * Here I'm using the native approach in RxJava to prepend those two login tasks.
+         *
+         * Input of transferAssetsTask will be assigned manually in flatMap.
+         *
+         * Note the subscribeOn on login tasks. These two tasks would execute synchronously without subscribeOn another thread.
+         */
+
+        Observable.combineLatest(
+                LoginRxTask.build("google", "********").onProgress(System.out::println).asObservable().subscribeOn(Schedulers.io()),
+                LoginRxTask.build("microsoft", "********").onProgress(System.out::println).asObservable().subscribeOn(Schedulers.io()),
+                (result, result2) -> new LoginRxTask.Result[]{result, result2}
+        )
+            .flatMap(pair ->
+                    TransferAssetsRxTask.build(pair[0].userInfo, pair[1].userInfo, null).onProgress(System.out::println).asObservable())
+            .subscribeOn(Schedulers.io())
+            .observeOn(Schedulers.newThread())
+            .subscribe(new Subscriber<TransferAssetsRxTask.Result>() {
+                @Override
+                public void onCompleted() {
+                    signal.countDown();
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    System.out.println("error");
+                    signal.countDown();
+                }
+
+                @Override
+                public void onNext(TransferAssetsRxTask.Result result) {
+                }
+            });
         signal.await();
     }
 

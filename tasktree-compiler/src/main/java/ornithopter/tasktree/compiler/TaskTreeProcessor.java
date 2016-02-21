@@ -33,6 +33,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
@@ -86,7 +87,6 @@ public class TaskTreeProcessor extends AbstractProcessor {
             context = new Context();
             context.taskBaseClassName = ClassName.get(ornithopter.tasktree.Task.class);
             context.processingEnv = processingEnv;
-            context.useShortTask = true;
             Task annotation = element.getAnnotation(Task.class);
             context.rxEnabled = annotation.rx();
             try {
@@ -132,14 +132,15 @@ public class TaskTreeProcessor extends AbstractProcessor {
 
                 if (context.rxEnabled) {
                     processAsObservableMethod(typeSpecBuilder);
+                    processAsFuncMethod(typeSpecBuilder);
                     processResultTypeAndField(typeSpecBuilder);
                 } else {
-                    processOnSuccessMethod(typeSpecBuilder);
-                    processOnErrorMethod(typeSpecBuilder);
-                    processOnProgressMethod(typeSpecBuilder);
-                    processOnStartedMethod(typeSpecBuilder);
-                    processOnCanceledMethod(typeSpecBuilder);
                 }
+                processOnSuccessMethod(typeSpecBuilder);
+                processOnErrorMethod(typeSpecBuilder);
+                processOnProgressMethod(typeSpecBuilder);
+                processOnStartedMethod(typeSpecBuilder);
+                processOnCanceledMethod(typeSpecBuilder);
 
                 JavaFile.builder(context.packageElement.toString(), typeSpecBuilder.build())
                         .addFileComment("Generated code from TaskTree. Do not modify!")
@@ -261,11 +262,10 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 .addParameter(TypeName.get(ExecutionCallback.class), "callback")
                 .returns(void.class);
 
-        if (context.useShortTask) {
-            builder.addStatement("(($T) callback).onSuccess($L)", context.innerCallbackClassName, StringUtils.join(args, ", "));
-        } else {
-            builder.addStatement("callback.onSuccess($L)", StringUtils.join(args, ", "));
+        if (context.rxEnabled) {
+            builder.addStatement("$L.completed = true", context.resultFieldName);
         }
+        builder.addStatement("(($T) callback).onSuccess($L)", context.innerCallbackClassName, StringUtils.join(args, ", "));
 
         typeSpecBuilder.addMethod(builder.build());
     }
@@ -302,12 +302,12 @@ public class TaskTreeProcessor extends AbstractProcessor {
                 .addModifiers(PROTECTED)
                 .returns(void.class);
 
-        if (!context.rxEnabled) {
-            executeInternalBuilder
-                    .beginControlFlow("if ($L != null)", "startedCallback")
-                    .addStatement("$L.call()", "startedCallback")
-                    .endControlFlow();
-        }
+//        if (!context.rxEnabled) {
+        executeInternalBuilder
+                .beginControlFlow("if ($L != null)", "startedCallback")
+                .addStatement("$L.call()", "startedCallback")
+                .endControlFlow();
+//        }
 
         executeInternalBuilder.addStatement("$L.$L()", context.taskImplFieldName, executionElement.getSimpleName());
 
@@ -463,6 +463,57 @@ public class TaskTreeProcessor extends AbstractProcessor {
         );
     }
 
+    private void processAsFuncMethod(TypeSpec.Builder typeSpecBuilder) {
+        ClassName functionClass = context.getFunctionClass("Func" + (context.inputFields.size()));
+
+        List<TypeName> typeNames = Stream.of(context.inputFields).map(new Function<Element, TypeName>() {
+            @Override
+            public TypeName apply(Element value) {
+                return TypeName.get(value.asType()).box();
+            }
+        }).collect(Collectors.<TypeName>toList());
+        typeNames = new ArrayList<>(typeNames);
+        typeNames.add(context.resultClassName);
+        TypeName[] array = typeNames.toArray(new TypeName[typeNames.size()]);
+
+        ParameterizedTypeName typeName = ParameterizedTypeName.get(functionClass, array);
+
+        List<ParameterSpec> params = Stream.of(context.inputFields).map(new Function<Element, ParameterSpec>() {
+            @Override
+            public ParameterSpec apply(Element value) {
+                return ParameterSpec.builder(TypeName.get(value.asType()).box(), value.getSimpleName().toString()).build();
+            }
+        }).collect(Collectors.<ParameterSpec>toList());
+
+        String taskVarName = "task";
+
+        TypeSpec anony = TypeSpec.anonymousClassBuilder("")
+                .addSuperinterface(typeName)
+                .addMethod(MethodSpec.methodBuilder("call")
+                        .addAnnotation(Override.class)
+                        .addModifiers(Modifier.PUBLIC)
+                        .addParameters(params)
+                        .returns(context.resultClassName)
+                        .addStatement("$T $L = build($L)", context.wrappedTaskClassName, taskVarName, Stream.of(context.inputFields).map(new Function<Element, Name>() {
+                            @Override
+                            public Name apply(Element value) {
+                                return value.getSimpleName();
+                            }
+                        }).collect(Collectors.joining(",")))
+                        .addStatement("$L.execute()", taskVarName)
+                        .addStatement("return $L.result", taskVarName)
+                        .build())
+                .build();
+
+        typeSpecBuilder.addMethod(
+                MethodSpec.methodBuilder("asFunc")
+                        .addModifiers(PUBLIC, STATIC)
+                        .returns(typeName)
+                        .addStatement("return $L", anony)
+                        .build()
+        );
+    }
+
     private void processReadResultMapMethod(TypeSpec.Builder typeSpecBuilder) {
         final String paramName = "map";
         final MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("readInputFromMap")
@@ -554,6 +605,12 @@ public class TaskTreeProcessor extends AbstractProcessor {
         for (Element field :
                 outputFields) {
             typeSpecBuilder.addField(TypeName.get(field.asType()), field.getSimpleName().toString(), Modifier.PUBLIC);
+        }
+
+        TypeMirror progressType = context.getTaskControllerTypeArgument();
+        if (progressType != null) {
+            typeSpecBuilder.addField(TypeName.get(progressType), "progress", PUBLIC);
+            typeSpecBuilder.addField(TypeName.BOOLEAN, "completed", PUBLIC);
         }
 
         builder.addType(typeSpecBuilder.build());

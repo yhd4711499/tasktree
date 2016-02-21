@@ -49,10 +49,6 @@ public class Context {
      * rx support
      */
     public boolean rxEnabled;
-    /**
-     *
-     */
-    public boolean useShortTask;
 
     /* =============== rx =============== */
     public String rxSubscriberFieldName;

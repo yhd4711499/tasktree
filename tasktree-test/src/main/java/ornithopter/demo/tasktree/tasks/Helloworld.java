@@ -1,4 +1,4 @@
-package ornithopter.demo.tasktree;
+package ornithopter.demo.tasktree.tasks;
 
 import org.jetbrains.annotations.Nullable;
 

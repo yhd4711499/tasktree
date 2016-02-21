@@ -72,44 +72,49 @@ class InnerExecutionCallbackBuilder {
         if (ctx.rxEnabled) {
             onSuccessBuilder
                     .beginControlFlow("if ($L != null)", ctx.rxSubscriberFieldName);
-
             for (String argName :
                     argNames) {
                 onSuccessBuilder.addStatement("$L.$L = $L", ctx.resultFieldName, argName, argName);
             }
-
             onSuccessBuilder.addStatement("$L.onNext($L)", ctx.rxSubscriberFieldName, ctx.resultFieldName);
             onSuccessBuilder.addStatement("$L.onCompleted()", ctx.rxSubscriberFieldName);
-
             onSuccessBuilder.endControlFlow();
+
+//            onProgressBuilder
+//                    .addStatement("$L.progress = $L", ctx.resultFieldName, onProgressParameterName)
+//                    .beginControlFlow("if ($L != null)", ctx.rxSubscriberFieldName)
+//                    .addStatement("$L.onNext($L)", ctx.rxSubscriberFieldName, ctx.resultFieldName)
+//                    .endControlFlow();
 
             onErrorBuilder
                     .beginControlFlow("if ($L != null)", ctx.rxSubscriberFieldName)
                     .addStatement("$L.onError($L)", ctx.rxSubscriberFieldName, "e")
                     .endControlFlow();
+
+
         } else {
-            if (taskControllerType != null) {
-                onProgressBuilder
-                        .beginControlFlow("if (progressCallback != null)")
-                        .addStatement("progressCallback.call($L)", onProgressParameterName)
-                        .endControlFlow();
-            }
-
-            onCanceledBuilder
-                    .beginControlFlow("if (canceledCallback != null)")
-                    .addStatement("canceledCallback.call()")
-                    .endControlFlow();
-
-            onErrorBuilder
-                    .beginControlFlow("if (errorCallback != null)")
-                    .addStatement("errorCallback.call(e)")
-                    .endControlFlow();
-
-            onSuccessBuilder
-                    .beginControlFlow("if (successCallback != null)")
-                    .addStatement("successCallback.call($L)", StringUtils.join(argNames, ","))
+        }
+        if (taskControllerType != null) {
+            onProgressBuilder
+                    .beginControlFlow("if (progressCallback != null)")
+                    .addStatement("progressCallback.call($L)", onProgressParameterName)
                     .endControlFlow();
         }
+
+        onCanceledBuilder
+                .beginControlFlow("if (canceledCallback != null)")
+                .addStatement("canceledCallback.call()")
+                .endControlFlow();
+
+        onErrorBuilder
+                .beginControlFlow("if (errorCallback != null)")
+                .addStatement("errorCallback.call(e)")
+                .endControlFlow();
+
+        onSuccessBuilder
+                .beginControlFlow("if (successCallback != null)")
+                .addStatement("successCallback.call($L)", StringUtils.join(argNames, ","))
+                .endControlFlow();
 
         List<MethodSpec> methodSpecs = new ArrayList<>();
         methodSpecs.add(onSuccessBuilder.build());

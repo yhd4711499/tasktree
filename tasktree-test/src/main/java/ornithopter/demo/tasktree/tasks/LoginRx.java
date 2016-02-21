@@ -1,4 +1,4 @@
-package ornithopter.demo.tasktree;
+package ornithopter.demo.tasktree.tasks;
 
 import ornithopter.tasktree.TaskController;
 import ornithopter.tasktree.annotations.Execution;
@@ -10,8 +10,8 @@ import ornithopter.tasktree.annotations.Task;
 /**
  * @author Ornithopter on 2016/1/9.
  */
-@Task(rx = false)
-class Login {
+@Task(rx = true)
+class LoginRx {
     @Input String username;
     @Input String password;
 
@@ -30,7 +30,7 @@ class Login {
         taskController.success();
     }
 
-    static class UserInfo {
+    public static class UserInfo {
         String username;
         String token;
     }
